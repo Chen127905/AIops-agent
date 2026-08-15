@@ -51,10 +51,10 @@ Ops Agent Platform 是一个面向企业 IT 运维工单的 Java Agent 应用。
 ### 3.1 后端
 
 - Java 21；
-- Spring Boot 3.5.8；
-- Spring AI Alibaba Agent Framework / Graph 1.1.2.3；
-- Spring AI 的 Chat Model、Embedding、Vector Store 和 MCP 能力；
-- MyBatis-Plus 3.5.17，用于 MySQL 业务数据访问；
+- Spring Boot 4.0.6；
+- Spring AI 2.0.0 GA 的 Chat Model、Embedding、Vector Store 和 MCP 能力；
+- Spring AI Alibaba Agent Framework / Graph 2.0.0-M1.1；
+- MyBatis-Plus 3.5.17 Spring Boot 4 Starter，用于 MySQL 业务数据访问；
 - Flyway；
 - JUnit 5、Mockito、Testcontainers、WireMock；
 - Micrometer，后续可接 OpenTelemetry。
@@ -81,9 +81,26 @@ Ops Agent Platform 是一个面向企业 IT 运维工单的 Java Agent 应用。
 - SSE 订阅 Agent 执行事件；
 - 只实现登录、工单、执行轨迹、审批、知识库和评测六类页面。
 
+### 3.5 AI 依赖和升级边界
+
+- Spring AI 固定使用 2.0.0 正式版，不使用 2.0.x Snapshot；
+- Spring AI Alibaba 2.0 尚无 GA，第一版固定使用 2.0.0-M1.1，并通过项目自有接口隔离其里程碑 API；
+- 使用 `spring-ai-openai`、`spring-ai-pgvector-store`、`spring-ai-alibaba-dashscope` 和 `spring-ai-alibaba-agent-framework` 核心库，不引入会自动创建外部连接 Bean 的模型或向量库 Starter；
+- Qwen、DeepSeek 和 pgvector Bean 全部在项目配置类中显式创建，缺少 API Key 时除本地模型探针外的基础应用仍可启动；
+- 业务层只依赖 `ModelGateway`、`KnowledgeRetriever` 和 `AgentWorkflowEngine`，不直接依赖 Alibaba Graph、DashScope 或 OpenAI 兼容客户端；
+- Spring AI Alibaba 发布 2.0 GA 后，只允许修改适配实现和依赖版本，不改变工单、工具、审批和评测模块接口。
+
 ## 4. 总体架构
 
 系统采用模块化单体，部署为一个 Java 后端和一个 Vue 前端。业务模块通过 Java 接口协作，不直接跨模块访问内部表。
+
+Agent 编排通过项目端口 `AgentWorkflowEngine` 接入。`agent-runtime` 依赖该端口，Alibaba Graph 实现放在基础设施层；里程碑版本升级时，业务状态机和审批准入逻辑不随框架 API 变化。
+
+```java
+public interface AgentWorkflowEngine {
+    AgentTaskResult execute(AgentTaskCommand command);
+}
+```
 
 ```text
 Vue 3
