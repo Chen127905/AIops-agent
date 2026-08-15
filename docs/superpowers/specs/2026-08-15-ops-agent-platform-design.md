@@ -51,10 +51,10 @@ Ops Agent Platform 是一个面向企业 IT 运维工单的 Java Agent 应用。
 ### 3.1 后端
 
 - Java 21；
-- Spring Boot 3；
-- Spring AI Alibaba Agent Framework / Graph；
+- Spring Boot 3.5.8；
+- Spring AI Alibaba Agent Framework / Graph 1.1.2.3；
 - Spring AI 的 Chat Model、Embedding、Vector Store 和 MCP 能力；
-- MyBatis-Plus，用于 MySQL 业务数据访问；
+- MyBatis-Plus 3.5.17，用于 MySQL 业务数据访问；
 - Flyway；
 - JUnit 5、Mockito、Testcontainers、WireMock；
 - Micrometer，后续可接 OpenTelemetry。
@@ -129,7 +129,7 @@ Tenant
   `-- ToolPolicy
 ```
 
-所有核心业务表包含 `tenant_id`。Repository、知识检索和工具层都必须检查租户边界，不能只依赖 Controller 传入的租户标识。
+所有核心业务表包含 `tenant_id`。Repository、知识检索和工具层都必须检查租户边界，不能只依赖 Controller 传入的租户标识。身份认证固定使用 Spring Security + JWT；第一版不接入企业 SSO。
 
 ### 5.2 核心表
 
