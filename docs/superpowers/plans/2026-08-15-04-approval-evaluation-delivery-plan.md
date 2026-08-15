@@ -6,7 +6,7 @@
 
 **Architecture:** Approval owns single-use decisions and resumes a suspended Graph from persisted state. Recovery uses leases and checkpoints rather than request threads. Evaluation calls the same production workflow with fixed scenarios and ground truth, while the UI visualizes persisted events and approvals.
 
-**Tech Stack:** Java 21, Spring Boot 3.5.8, Spring AI Alibaba 1.1.2.3, MySQL, pgvector, Micrometer, JUnit 5, Testcontainers, Vue 3, Vitest, Docker Compose.
+**Tech Stack:** Java 21, Spring Boot 4.0.6, Spring AI 2.0.0, Spring AI Alibaba 2.0.0-M1.1, MySQL, pgvector, Micrometer, JUnit 5, Testcontainers, Vue 3, Vitest, Docker Compose.
 
 ## Global Constraints
 

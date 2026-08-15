@@ -6,7 +6,7 @@
 
 **Architecture:** The knowledge module owns ingestion and retrieval behind a tenant-safe port. The agent runtime persists task, step, model, and tool records in MySQL while Spring AI Alibaba Graph orchestrates deterministic nodes around one bounded diagnostic Agent node. SSE reads persisted events and never owns task lifetime.
 
-**Tech Stack:** Java 21, Spring Boot 3.5.8, Spring AI Alibaba 1.1.2.3, Spring AI 1.1.2, pgvector, MySQL, MyBatis-Plus, Jackson, Reactor, JUnit 5, Testcontainers, WireMock.
+**Tech Stack:** Java 21, Spring Boot 4.0.6, Spring AI 2.0.0, Spring AI Alibaba 2.0.0-M1.1, pgvector, MySQL, MyBatis-Plus, Jackson, Reactor, JUnit 5, Testcontainers, WireMock.
 
 ## Global Constraints
 
@@ -15,6 +15,7 @@
 - Every knowledge query includes a server-derived tenant filter and an active document-version filter.
 - Only one active task is permitted per ticket.
 - Bound Agent execution by maximum steps, wall-clock time, and Token budget.
+- Keep Alibaba Graph types inside `agent.infrastructure`; application and domain packages depend only on `AgentWorkflowEngine`.
 - SSE disconnect does not cancel a task.
 - Write a failing test before production code and commit after each task.
 
@@ -34,11 +35,13 @@ server/src/main/java/com/cc/opsagent/
   agent/domain/AgentStep.java
   agent/domain/AgentTaskStatus.java
   agent/application/AgentTaskService.java
+  agent/application/AgentWorkflowEngine.java
   agent/application/OpsAgentWorkflow.java
   agent/application/AgentEventService.java
   agent/graph/OpsAgentState.java
   agent/graph/OpsAgentGraphFactory.java
   agent/graph/node/*.java
+  agent/infrastructure/AlibabaGraphWorkflowEngine.java
   agent/web/AgentTaskController.java
 server/src/main/resources/db/mysql/V3__knowledge.sql
 server/src/main/resources/db/mysql/V4__agent_runtime.sql
@@ -204,12 +207,14 @@ git commit -m "feat: persist agent execution state"
 - Create: `server/src/main/java/com/cc/opsagent/agent/graph/node/DecisionNode.java`
 - Create: `server/src/main/java/com/cc/opsagent/agent/graph/node/VerifyNode.java`
 - Create: `server/src/main/java/com/cc/opsagent/agent/graph/node/SummarizeNode.java`
+- Create: `server/src/main/java/com/cc/opsagent/agent/application/AgentWorkflowEngine.java`
 - Create: `server/src/main/java/com/cc/opsagent/agent/application/OpsAgentWorkflow.java`
+- Create: `server/src/main/java/com/cc/opsagent/agent/infrastructure/AlibabaGraphWorkflowEngine.java`
 - Create: `server/src/test/java/com/cc/opsagent/agent/graph/OpsAgentWorkflowTest.java`
 
 **Interfaces:**
 - Consumes: ticket, knowledge retriever, model gateway, tool facade, and agent persistence.
-- Produces: `TaskOutcome OpsAgentWorkflow.run(long taskId)` with structured state keys for classification, evidence, plan, tool results, decision, verification, citations, and final report.
+- Produces: `TaskOutcome AgentWorkflowEngine.execute(AgentTaskCommand command)` and `TaskOutcome OpsAgentWorkflow.run(long taskId)`. `OpsAgentWorkflow` owns application orchestration and calls the port; `AlibabaGraphWorkflowEngine` owns all Spring AI Alibaba Graph types and structured state keys for classification, evidence, plan, tool results, decision, verification, citations, and final report.
 
 - [ ] **Step 1: Write a failing fixed-model workflow test**
 
@@ -235,7 +240,7 @@ Expected: FAIL because the graph is absent.
 
 - [ ] **Step 3: Implement typed node inputs and outputs**
 
-Use structured Java records for triage, plan, decision, and summary. Persist each node start, success, failure, duration, model call, and tool call. The diagnostic node may choose among allowlisted read-only tools only. Route a proposed high-risk action to a suspension outcome; approval execution is implemented in the next plan.
+Implement the graph inside `AlibabaGraphWorkflowEngine`. Use structured Java records for triage, plan, decision, and summary. Persist each node start, success, failure, duration, model call, and tool call. The diagnostic node may choose among allowlisted read-only tools only. Route a proposed high-risk action to a suspension outcome; approval execution is implemented in the next plan. Keep `AgentWorkflowEngine`, its command, and its result free of Alibaba or Spring AI types.
 
 Set default budget to 12 steps, 180 seconds, and a configurable Token ceiling. Stop with an explicit state when any limit is exceeded.
 

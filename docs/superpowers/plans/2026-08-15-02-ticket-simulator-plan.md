@@ -6,7 +6,7 @@
 
 **Architecture:** The ticket module owns business state; the simulator exposes an `OpsDataProvider` port backed by YAML fixtures. The tool center wraps provider methods in strongly typed tool contracts and enforces tenant, validation, timeout, output, and risk policies before execution.
 
-**Tech Stack:** Java 21, Spring Boot 3.5.8, MyBatis-Plus 3.5.17, MySQL, Spring Validation, Spring Security, Jackson YAML, JUnit 5, Testcontainers.
+**Tech Stack:** Java 21, Spring Boot 4.0.6, MyBatis-Plus 3.5.17 Spring Boot 4 Starter, MySQL, Spring Validation, Spring Security, Jackson YAML, JUnit 5, Testcontainers.
 
 ## Global Constraints
 

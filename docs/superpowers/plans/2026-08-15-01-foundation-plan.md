@@ -6,12 +6,14 @@
 
 **Architecture:** Use one Spring Boot modular monolith under `server/` and one Vue 3 application under `web/`. MySQL stores business state; PostgreSQL with pgvector stores embeddings. Spring Security authenticates JWTs and exposes a server-derived tenant context to downstream modules.
 
-**Tech Stack:** Java 21, Spring Boot 3.5.8, Spring AI Alibaba 1.1.2.3, Spring AI 1.1.2, MyBatis-Plus 3.5.17, MySQL 8.4, pgvector/pgvector:pg16, Flyway, JUnit 5, Testcontainers, Vue 3, TypeScript, Vite.
+**Tech Stack:** Java 21, Spring Boot 4.0.6, Spring AI 2.0.0, Spring AI Alibaba 2.0.0-M1.1, MyBatis-Plus 3.5.17, MySQL 8.4, pgvector/pgvector:pg16, Flyway, JUnit 5, Testcontainers, Vue 3, TypeScript, Vite.
 
 ## Global Constraints
 
-- Use Java 21 and Spring Boot 3.5.8.
-- Pin Spring AI Alibaba artifacts to 1.1.2.3; do not adopt the 2.0 milestone line.
+- Use Java 21 and Spring Boot 4.0.6.
+- Pin Spring AI to 2.0.0 GA and Spring AI Alibaba to 2.0.0-M1.1.
+- Use AI core libraries rather than model or vector-store Starters; create Qwen, DeepSeek, and pgvector beans explicitly in project configuration.
+- Isolate Alibaba Graph behind the project-owned `AgentWorkflowEngine` port.
 - Use package root `com.cc.opsagent`.
 - Use Spring Security + JWT; never accept `tenantId` from a request as proof of identity.
 - Store secrets only in environment variables; commit `.env.example`, never `.env`.
@@ -88,7 +90,7 @@ Expected: FAIL because `server/pom.xml` does not exist.
 
 - [ ] **Step 3: Create the Maven project with pinned dependencies**
 
-Create `server/pom.xml` with parent `org.springframework.boot:spring-boot-starter-parent:3.5.8`, Java 21, and explicit dependencies for web, validation, security, actuator, JDBC, MySQL driver, PostgreSQL driver, Flyway MySQL/PostgreSQL, `mybatis-plus-spring-boot3-starter:3.5.17`, `spring-ai-alibaba-agent-framework:1.1.2.3`, `spring-ai-alibaba-starter-dashscope:1.1.2.3`, `spring-ai-starter-model-openai:1.1.2`, `spring-ai-starter-vector-store-pgvector:1.1.2`, test, security-test, and Testcontainers.
+Create `server/pom.xml` with parent `org.springframework.boot:spring-boot-starter-parent:4.0.6`, Java 21, and explicit dependencies for web, validation, security, actuator, JDBC, MySQL driver, PostgreSQL driver, Flyway MySQL/PostgreSQL, `mybatis-plus-spring-boot4-starter:3.5.17`, `spring-ai-alibaba-agent-framework:2.0.0-M1.1`, `spring-ai-alibaba-dashscope:2.0.0-M1.1`, `spring-ai-openai:2.0.0`, `spring-ai-pgvector-store:2.0.0`, test, security-test, and Testcontainers. Do not add the corresponding AI Starter artifacts.
 
 The application entry point must be:
 
@@ -101,7 +103,7 @@ public class OpsAgentApplication {
 }
 ```
 
-Set `spring.application.name=ops-agent-platform` and `server.port=8080` in `application.yml`.
+Set `spring.application.name=ops-agent-platform` and `server.port=8080` in `application.yml`. Do not configure provider API keys or AI auto-configuration in this task; core libraries must allow the context to load without external services.
 
 - [ ] **Step 4: Add reproducible containers and environment contract**
 
