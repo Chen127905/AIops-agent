@@ -66,7 +66,7 @@ git commit -m "fix: allow foundation app to start without datasource"
 - [ ] **Step 1: Write the failing integration test**
 
 ```java
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @SpringBootTest
 class BusinessDatabaseMigrationIT {
 
@@ -123,6 +123,7 @@ Expected: FAIL because `businessJdbcTemplate` does not exist. If Docker is unava
 ### Task 3: Add the Business DataSource and Flyway Migration
 
 **Files:**
+- Modify: `server/pom.xml`
 - Create: `server/src/main/java/com/cc/opsagent/config/DataSourceConfig.java`
 - Create: `server/src/main/java/com/cc/opsagent/config/FlywayConfig.java`
 - Create: `server/src/main/resources/db/mysql/V1__identity.sql`
@@ -136,15 +137,19 @@ Expected: FAIL because `businessJdbcTemplate` does not exist. If Docker is unava
 
 Use `DataSourceProperties` bound to `app.datasource.business`, build a Hikari data source, mark the business data source and JDBC template `@Primary`, and name every bean explicitly.
 
-- [ ] **Step 2: Configure explicit Flyway ownership**
+- [ ] **Step 2: Register integration tests with Maven Failsafe**
+
+Configure `maven-failsafe-plugin` with the `integration-test` and `verify` goals so every class named `*IT` runs during `mvn verify`. Do not allow missing Docker to turn the database contract into a skipped test.
+
+- [ ] **Step 3: Configure explicit Flyway ownership**
 
 Create `businessFlyway` with `initMethod = "migrate"`, the `businessDataSource`, and location `classpath:db/mysql`. Disable Spring Boot's generic Flyway auto-run so adding a vector data source later cannot make migration ownership ambiguous.
 
-- [ ] **Step 3: Create the identity baseline**
+- [ ] **Step 4: Create the identity baseline**
 
 Create `tenant` with a unique `code`, lifecycle status, and microsecond timestamps. Create `user_account` with a foreign key to `tenant`, unique `(tenant_id, username)`, password hash, display name, role, lifecycle status, and timestamps. Use `utf8mb4` with `utf8mb4_0900_ai_ci`.
 
-- [ ] **Step 4: Replace the temporary DataSource exclusion**
+- [ ] **Step 5: Replace the temporary DataSource exclusion**
 
 Remove `spring.autoconfigure.exclude`. Add environment-overridable local defaults:
 
@@ -162,7 +167,7 @@ spring:
     enabled: false
 ```
 
-- [ ] **Step 5: Run GREEN and the regression suite**
+- [ ] **Step 6: Run GREEN and the regression suite**
 
 Run:
 
@@ -175,16 +180,17 @@ git diff --check
 
 Expected: migration integration test passes against MySQL 8.4, the application suite passes, Compose is valid, and Git reports no whitespace errors.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```powershell
-git add server/src/main/java/com/cc/opsagent/config server/src/main/resources server/src/test/java/com/cc/opsagent/config
+git add server/pom.xml server/src/main/java/com/cc/opsagent/config server/src/main/resources server/src/test/java/com/cc/opsagent/config
 git commit -m "feat: add MySQL Flyway baseline"
 ```
 
 ## Acceptance Gate
 
 - The integration test uses a real disposable MySQL 8.4 container.
+- `mvn verify` executes `BusinessDatabaseMigrationIT` through Maven Failsafe.
 - Flyway creates exactly one successful versioned migration.
 - `tenant`, `user_account`, and `flyway_schema_history` exist.
 - The application no longer excludes `DataSourceAutoConfiguration`.
