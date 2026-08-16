@@ -1,10 +1,16 @@
 spring:
   application:
     name: ops-agent-platform
-  autoconfigure:
-    # 功能二配置真实数据源后删除这个临时排除项
-    exclude:
-      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+  flyway:
+    enabled: false
+
+app:
+  datasource:
+    business:
+      url: "${MYSQL_URL:jdbc:mysql://localhost:3307/ops_agent?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}"
+      username: "${MYSQL_USERNAME:ops_agent}"
+      password: "${MYSQL_PASSWORD:change-me-mysql}"
+      driver-class-name: com.mysql.cj.jdbc.Driver
 
 server:
   port: 8080

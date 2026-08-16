@@ -110,6 +110,8 @@ class BusinessDatabaseMigrationIT {
 }
 ```
 
+Add two more behavior tests: inserting the same tenant `code` twice must raise `DataIntegrityViolationException`; inserting the same username twice for one tenant must fail, while the same username in a different tenant must succeed.
+
 - [ ] **Step 2: Run the test and observe RED**
 
 Run:
@@ -196,6 +198,8 @@ git commit -m "feat: add MySQL Flyway baseline"
 - `mvn verify` executes `BusinessDatabaseMigrationIT` through Maven Failsafe.
 - Flyway creates exactly one successful versioned migration.
 - `tenant`, `user_account`, and `flyway_schema_history` exist.
+- Duplicate tenant codes are rejected.
+- Username uniqueness is enforced within a tenant, not globally.
 - The application no longer excludes `DataSourceAutoConfiguration`.
 - No PostgreSQL data source or vector-store bean is added.
 - The worktree is clean after commits.
