@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 @Mapper
-public interface TicketMapper extends BaseMapper<Ticket> {
+interface TicketMapper extends BaseMapper<Ticket> {
 
     @Select("""
             SELECT id, tenant_id, reporter_id, title, description,

@@ -27,7 +27,9 @@ server/src/main/java/com/cc/opsagent/ticket/
   domain/Ticket.java
   domain/TicketSeverity.java
   domain/TicketStatus.java
+  application/TicketRepository.java
   application/TicketStateMachine.java
+  infrastructure/MyBatisTicketRepository.java
   infrastructure/TicketMapper.java
 server/src/main/resources/db/mysql/
   V2__ticket.sql
@@ -482,26 +484,29 @@ git commit -m "feat: add tenant-safe ticket schema"
 
 **Files:**
 - Modify: `server/src/main/resources/application.yml`
+- Create: `server/src/main/java/com/cc/opsagent/ticket/application/TicketRepository.java`
 - Create: `server/src/main/java/com/cc/opsagent/ticket/domain/Ticket.java`
+- Create: `server/src/main/java/com/cc/opsagent/ticket/infrastructure/MyBatisTicketRepository.java`
 - Create: `server/src/main/java/com/cc/opsagent/ticket/infrastructure/TicketMapper.java`
 - Modify: `server/src/test/java/com/cc/opsagent/ticket/infrastructure/TicketMapperIT.java`
 
 **Interfaces:**
 - Consumes: V2 `ticket` table and the two domain enums.
-- Produces: `TicketMapper.selectByTenantIdAndId(long, long)`.
-- Produces: `TicketMapper.transitionStatus(long, long, TicketStatus, TicketStatus)` returning an affected-row count.
+- Produces: public `TicketRepository` methods `insert`, `findByTenantIdAndId`, and `transitionStatus`.
+- Keeps `TicketMapper extends BaseMapper<Ticket>` package-private so application code cannot call inherited unscoped CRUD methods.
 
 - [ ] **Step 1: Write failing mapper behavior tests**
 
 Add these imports and field to `TicketMapperIT`:
 
 ```java
+import com.cc.opsagent.ticket.application.TicketRepository;
 import com.cc.opsagent.ticket.domain.Ticket;
 import com.cc.opsagent.ticket.domain.TicketSeverity;
 import com.cc.opsagent.ticket.domain.TicketStatus;
 
 @Autowired
-TicketMapper ticketMapper;
+TicketRepository ticketRepository;
 ```
 
 Add tests:
@@ -514,11 +519,11 @@ void findsTicketOnlyInsideOwningTenant() {
     long reporterA = insertUser(tenantA, "mapper-reporter-a");
     Ticket ticket = newTicket(tenantA, reporterA, "Database connection pool exhausted");
 
-    assertThat(ticketMapper.insert(ticket)).isEqualTo(1);
+    assertThat(ticketRepository.insert(ticket)).isEqualTo(1);
     assertThat(ticket.getId()).isNotNull();
 
-    Ticket owningTenantTicket = ticketMapper.selectByTenantIdAndId(tenantA, ticket.getId());
-    Ticket otherTenantTicket = ticketMapper.selectByTenantIdAndId(tenantB, ticket.getId());
+    Ticket owningTenantTicket = ticketRepository.findByTenantIdAndId(tenantA, ticket.getId());
+    Ticket otherTenantTicket = ticketRepository.findByTenantIdAndId(tenantB, ticket.getId());
 
     assertThat(owningTenantTicket).isNotNull();
     assertThat(owningTenantTicket.getTitle()).isEqualTo("Database connection pool exhausted");
@@ -531,16 +536,16 @@ void allowsOnlyOneExpectedStatusUpdate() {
     long tenantId = insertTenant("transition-tenant");
     long reporterId = insertUser(tenantId, "transition-reporter");
     Ticket ticket = newTicket(tenantId, reporterId, "Redis commands are timing out");
-    ticketMapper.insert(ticket);
+    ticketRepository.insert(ticket);
 
-    int first = ticketMapper.transitionStatus(
+    int first = ticketRepository.transitionStatus(
             tenantId, ticket.getId(), TicketStatus.OPEN, TicketStatus.TRIAGING);
-    int staleSecond = ticketMapper.transitionStatus(
+    int staleSecond = ticketRepository.transitionStatus(
             tenantId, ticket.getId(), TicketStatus.OPEN, TicketStatus.TRIAGING);
 
     assertThat(first).isEqualTo(1);
     assertThat(staleSecond).isZero();
-    assertThat(ticketMapper.selectByTenantIdAndId(tenantId, ticket.getId()).getStatus())
+    assertThat(ticketRepository.findByTenantIdAndId(tenantId, ticket.getId()).getStatus())
             .isEqualTo(TicketStatus.TRIAGING);
 }
 
@@ -565,7 +570,7 @@ Run:
 mvn -f server/pom.xml -Dtest=TicketMapperIT test
 ```
 
-Expected: test compilation fails because `Ticket` and `TicketMapper` do not exist. No production mapper or entity should exist before this run.
+Expected: test compilation fails because `Ticket` and `TicketRepository` do not exist. No production repository, mapper, or entity should exist before this run.
 
 - [ ] **Step 3: Configure database-generated MyBatis IDs**
 
@@ -650,7 +655,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 @Mapper
-public interface TicketMapper extends BaseMapper<Ticket> {
+interface TicketMapper extends BaseMapper<Ticket> {
 
     @Select("""
             SELECT id, tenant_id, reporter_id, title, description,
@@ -675,6 +680,63 @@ public interface TicketMapper extends BaseMapper<Ticket> {
             @Param("ticketId") long ticketId,
             @Param("expectedStatus") TicketStatus expectedStatus,
             @Param("targetStatus") TicketStatus targetStatus);
+}
+```
+
+Create the public application port `TicketRepository` with `insert`, `findByTenantIdAndId`, and `transitionStatus`. Create `MyBatisTicketRepository` as a Spring `@Repository` that implements the port and delegates only those three methods to `TicketMapper`. Do not expose `TicketMapper` or any inherited `BaseMapper` method outside the infrastructure package.
+
+```java
+package com.cc.opsagent.ticket.application;
+
+import com.cc.opsagent.ticket.domain.Ticket;
+import com.cc.opsagent.ticket.domain.TicketStatus;
+
+public interface TicketRepository {
+    int insert(Ticket ticket);
+    Ticket findByTenantIdAndId(long tenantId, long ticketId);
+    int transitionStatus(
+            long tenantId,
+            long ticketId,
+            TicketStatus expectedStatus,
+            TicketStatus targetStatus);
+}
+```
+
+```java
+package com.cc.opsagent.ticket.infrastructure;
+
+import com.cc.opsagent.ticket.application.TicketRepository;
+import com.cc.opsagent.ticket.domain.Ticket;
+import com.cc.opsagent.ticket.domain.TicketStatus;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class MyBatisTicketRepository implements TicketRepository {
+    private final TicketMapper ticketMapper;
+
+    public MyBatisTicketRepository(TicketMapper ticketMapper) {
+        this.ticketMapper = ticketMapper;
+    }
+
+    @Override
+    public int insert(Ticket ticket) {
+        return ticketMapper.insert(ticket);
+    }
+
+    @Override
+    public Ticket findByTenantIdAndId(long tenantId, long ticketId) {
+        return ticketMapper.selectByTenantIdAndId(tenantId, ticketId);
+    }
+
+    @Override
+    public int transitionStatus(
+            long tenantId,
+            long ticketId,
+            TicketStatus expectedStatus,
+            TicketStatus targetStatus) {
+        return ticketMapper.transitionStatus(
+                tenantId, ticketId, expectedStatus, targetStatus);
+    }
 }
 ```
 
@@ -744,6 +806,7 @@ Expected: Compose and diff checks exit `0`; the worktree is clean after commits.
 - Flyway history contains successful V1 and V2 migrations.
 - MySQL rejects invalid status, invalid severity, and a cross-tenant reporter.
 - MyBatis insert returns an auto-increment ticket ID.
+- Application consumers see `TicketRepository`; `TicketMapper` remains package-private.
 - Tenant B cannot read tenant A's ticket.
 - Exactly one stale expected-state update succeeds.
 - No out-of-scope Controller, JWT, Agent, simulator, tool-policy, or PostgreSQL code exists.

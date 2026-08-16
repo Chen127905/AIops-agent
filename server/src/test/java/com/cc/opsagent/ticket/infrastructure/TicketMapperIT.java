@@ -1,5 +1,6 @@
 package com.cc.opsagent.ticket.infrastructure;
 
+import com.cc.opsagent.ticket.application.TicketRepository;
 import com.cc.opsagent.ticket.domain.Ticket;
 import com.cc.opsagent.ticket.domain.TicketSeverity;
 import com.cc.opsagent.ticket.domain.TicketStatus;
@@ -42,7 +43,7 @@ class TicketMapperIT {
     JdbcTemplate jdbcTemplate;
 
     @Autowired
-    TicketMapper ticketMapper;
+    TicketRepository ticketRepository;
 
     @Test
     void migratesTicketSchema() {
@@ -93,11 +94,11 @@ class TicketMapperIT {
         long reporterA = insertUser(tenantA, "mapper-reporter-a");
         Ticket ticket = newTicket(tenantA, reporterA, "Database connection pool exhausted");
 
-        assertThat(ticketMapper.insert(ticket)).isEqualTo(1);
+        assertThat(ticketRepository.insert(ticket)).isEqualTo(1);
         assertThat(ticket.getId()).isNotNull();
 
-        Ticket owningTenantTicket = ticketMapper.selectByTenantIdAndId(tenantA, ticket.getId());
-        Ticket otherTenantTicket = ticketMapper.selectByTenantIdAndId(tenantB, ticket.getId());
+        Ticket owningTenantTicket = ticketRepository.findByTenantIdAndId(tenantA, ticket.getId());
+        Ticket otherTenantTicket = ticketRepository.findByTenantIdAndId(tenantB, ticket.getId());
 
         assertThat(owningTenantTicket).isNotNull();
         assertThat(owningTenantTicket.getTitle()).isEqualTo("Database connection pool exhausted");
@@ -110,16 +111,16 @@ class TicketMapperIT {
         long tenantId = insertTenant("transition-tenant");
         long reporterId = insertUser(tenantId, "transition-reporter");
         Ticket ticket = newTicket(tenantId, reporterId, "Redis commands are timing out");
-        ticketMapper.insert(ticket);
+        ticketRepository.insert(ticket);
 
-        int first = ticketMapper.transitionStatus(
+        int first = ticketRepository.transitionStatus(
                 tenantId, ticket.getId(), TicketStatus.OPEN, TicketStatus.TRIAGING);
-        int staleSecond = ticketMapper.transitionStatus(
+        int staleSecond = ticketRepository.transitionStatus(
                 tenantId, ticket.getId(), TicketStatus.OPEN, TicketStatus.TRIAGING);
 
         assertThat(first).isEqualTo(1);
         assertThat(staleSecond).isZero();
-        assertThat(ticketMapper.selectByTenantIdAndId(tenantId, ticket.getId()).getStatus())
+        assertThat(ticketRepository.findByTenantIdAndId(tenantId, ticket.getId()).getStatus())
                 .isEqualTo(TicketStatus.TRIAGING);
     }
 

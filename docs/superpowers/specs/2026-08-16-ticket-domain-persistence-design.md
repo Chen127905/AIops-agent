@@ -14,7 +14,7 @@ This slice establishes the deterministic business core that later REST APIs and 
 - A `Ticket` domain entity with no web or Agent dependencies.
 - `TicketStateMachine.canTransition(from, to)`.
 - Flyway migration `V2__ticket.sql`.
-- A MyBatis-Plus `TicketMapper` with tenant-scoped reads and conditional status updates.
+- A public `TicketRepository` port backed by a package-private MyBatis-Plus mapper with tenant-scoped reads and conditional status updates.
 - Unit tests for transition rules.
 - A real MySQL 8.4 Testcontainers integration test for V2, tenant isolation, database ownership constraints, and competing status updates.
 
@@ -33,7 +33,9 @@ server/src/main/java/com/cc/opsagent/ticket/
   domain/Ticket.java
   domain/TicketSeverity.java
   domain/TicketStatus.java
+  application/TicketRepository.java
   application/TicketStateMachine.java
+  infrastructure/MyBatisTicketRepository.java
   infrastructure/TicketMapper.java
 server/src/main/resources/db/mysql/
   V2__ticket.sql
@@ -141,10 +143,12 @@ V1 remains immutable. All ticket schema changes belong to V2 or a later migratio
 
 ## 6. Persistence Contract
 
-`TicketMapper` extends `BaseMapper<Ticket>` for insertion and exposes two explicit business-safe methods:
+Application code depends on a public `TicketRepository` port:
 
 ```java
-Ticket selectByTenantIdAndId(long tenantId, long ticketId);
+int insert(Ticket ticket);
+
+Ticket findByTenantIdAndId(long tenantId, long ticketId);
 
 int transitionStatus(
         long tenantId,
@@ -152,6 +156,8 @@ int transitionStatus(
         TicketStatus expectedStatus,
         TicketStatus targetStatus);
 ```
+
+`MyBatisTicketRepository` implements this port. It delegates insertion and the two explicit SQL operations to a package-private `TicketMapper extends BaseMapper<Ticket>`. Keeping the mapper package-private prevents controllers and application services from calling inherited unscoped methods such as `selectById`, `updateById`, or `deleteById`.
 
 The read query always contains both `id` and `tenant_id`.
 
@@ -216,6 +222,7 @@ Tests use distinct tenant codes and usernames so JUnit execution order does not 
 - A cross-tenant reporter insert is rejected by MySQL.
 - A cross-tenant ticket read returns no row.
 - Competing expected-state updates allow exactly one winner.
+- Application code can use `TicketRepository` but cannot access the package-private `BaseMapper` surface.
 - `mvn -f server/pom.xml clean verify` succeeds.
 - Docker Compose configuration and `git diff --check` succeed.
 - No Controller, JWT, Agent, simulator, or tool-policy implementation is added.
