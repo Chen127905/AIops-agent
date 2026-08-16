@@ -124,6 +124,7 @@ Expected: FAIL because `businessJdbcTemplate` does not exist. If Docker is unava
 
 **Files:**
 - Modify: `server/pom.xml`
+- Delete: `server/src/test/java/com/cc/opsagent/OpsAgentApplicationTest.java`
 - Create: `server/src/main/java/com/cc/opsagent/config/DataSourceConfig.java`
 - Create: `server/src/main/java/com/cc/opsagent/config/FlywayConfig.java`
 - Create: `server/src/main/resources/db/mysql/V1__identity.sql`
@@ -140,6 +141,8 @@ Use `DataSourceProperties` bound to `app.datasource.business`, build a Hikari da
 - [ ] **Step 2: Register integration tests with Maven Failsafe**
 
 Configure `maven-failsafe-plugin` with the `integration-test` and `verify` goals so every class named `*IT` runs during `mvn verify`. Do not allow missing Docker to turn the database contract into a skipped test.
+
+Change `BusinessDatabaseMigrationIT` to `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)` so it proves both the real web server and database-backed application context. Delete the now-redundant `OpsAgentApplicationTest`; after this slice, starting without a database is no longer a supported runtime contract.
 
 - [ ] **Step 3: Configure explicit Flyway ownership**
 
@@ -183,7 +186,7 @@ Expected: migration integration test passes against MySQL 8.4, the application s
 - [ ] **Step 7: Commit**
 
 ```powershell
-git add server/pom.xml server/src/main/java/com/cc/opsagent/config server/src/main/resources server/src/test/java/com/cc/opsagent/config
+git add server/pom.xml server/src/main/java/com/cc/opsagent/config server/src/main/resources server/src/test/java/com/cc/opsagent/config server/src/test/java/com/cc/opsagent/OpsAgentApplicationTest.java
 git commit -m "feat: add MySQL Flyway baseline"
 ```
 
