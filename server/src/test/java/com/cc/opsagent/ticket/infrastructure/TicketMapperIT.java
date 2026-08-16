@@ -1,5 +1,8 @@
 package com.cc.opsagent.ticket.infrastructure;
 
+import com.cc.opsagent.ticket.domain.Ticket;
+import com.cc.opsagent.ticket.domain.TicketSeverity;
+import com.cc.opsagent.ticket.domain.TicketStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -37,6 +40,9 @@ class TicketMapperIT {
     @Autowired
     @Qualifier("businessJdbcTemplate")
     JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    TicketMapper ticketMapper;
 
     @Test
     void migratesTicketSchema() {
@@ -78,6 +84,55 @@ class TicketMapperIT {
         assertThatThrownBy(() -> insertTicket(
                 tenantId, reporterId, "Invalid severity", "Must be rejected", "OPEN", "URGENTEST"))
                 .isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
+    void findsTicketOnlyInsideOwningTenant() {
+        long tenantA = insertTenant("mapper-tenant-a");
+        long tenantB = insertTenant("mapper-tenant-b");
+        long reporterA = insertUser(tenantA, "mapper-reporter-a");
+        Ticket ticket = newTicket(tenantA, reporterA, "Database connection pool exhausted");
+
+        assertThat(ticketMapper.insert(ticket)).isEqualTo(1);
+        assertThat(ticket.getId()).isNotNull();
+
+        Ticket owningTenantTicket = ticketMapper.selectByTenantIdAndId(tenantA, ticket.getId());
+        Ticket otherTenantTicket = ticketMapper.selectByTenantIdAndId(tenantB, ticket.getId());
+
+        assertThat(owningTenantTicket).isNotNull();
+        assertThat(owningTenantTicket.getTitle()).isEqualTo("Database connection pool exhausted");
+        assertThat(owningTenantTicket.getStatus()).isEqualTo(TicketStatus.OPEN);
+        assertThat(otherTenantTicket).isNull();
+    }
+
+    @Test
+    void allowsOnlyOneExpectedStatusUpdate() {
+        long tenantId = insertTenant("transition-tenant");
+        long reporterId = insertUser(tenantId, "transition-reporter");
+        Ticket ticket = newTicket(tenantId, reporterId, "Redis commands are timing out");
+        ticketMapper.insert(ticket);
+
+        int first = ticketMapper.transitionStatus(
+                tenantId, ticket.getId(), TicketStatus.OPEN, TicketStatus.TRIAGING);
+        int staleSecond = ticketMapper.transitionStatus(
+                tenantId, ticket.getId(), TicketStatus.OPEN, TicketStatus.TRIAGING);
+
+        assertThat(first).isEqualTo(1);
+        assertThat(staleSecond).isZero();
+        assertThat(ticketMapper.selectByTenantIdAndId(tenantId, ticket.getId()).getStatus())
+                .isEqualTo(TicketStatus.TRIAGING);
+    }
+
+    private Ticket newTicket(long tenantId, long reporterId, String title) {
+        Ticket ticket = new Ticket();
+        ticket.setTenantId(tenantId);
+        ticket.setReporterId(reporterId);
+        ticket.setTitle(title);
+        ticket.setDescription("The service is unhealthy and requires diagnosis.");
+        ticket.setAffectedService("order-service");
+        ticket.setSeverity(TicketSeverity.UNKNOWN);
+        ticket.setStatus(TicketStatus.OPEN);
+        return ticket;
     }
 
     private void insertTicket(
