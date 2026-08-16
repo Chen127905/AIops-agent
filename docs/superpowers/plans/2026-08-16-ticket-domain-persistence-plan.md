@@ -264,6 +264,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -399,11 +400,11 @@ void rejectsUnknownPersistedStatusAndSeverity() {
 
     assertThatThrownBy(() -> insertTicket(
             tenantId, reporterId, "Invalid status", "Must be rejected", "NOT_A_STATUS", "UNKNOWN"))
-            .isInstanceOf(DataIntegrityViolationException.class);
+            .isInstanceOf(DataAccessException.class);
 
     assertThatThrownBy(() -> insertTicket(
             tenantId, reporterId, "Invalid severity", "Must be rejected", "OPEN", "URGENTEST"))
-            .isInstanceOf(DataIntegrityViolationException.class);
+            .isInstanceOf(DataAccessException.class);
 }
 
 private void insertTicket(
@@ -468,7 +469,7 @@ Run:
 mvn -f server/pom.xml -Dtest=TicketMapperIT test
 ```
 
-Expected: 3 tests pass, V2 is successful, and both invalid persistence attempts raise `DataIntegrityViolationException`.
+Expected: 3 tests pass, V2 is successful, the cross-tenant foreign key raises `DataIntegrityViolationException`, and invalid CHECK values raise `DataAccessException`. MySQL 8.4 reports CHECK violations with SQLState `HY000`, so Spring JDBC does not classify them as the narrower integrity subtype.
 
 Commit:
 
