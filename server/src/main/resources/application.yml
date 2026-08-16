@@ -1,6 +1,10 @@
 spring:
   application:
     name: ops-agent-platform
+  autoconfigure:
+    # 功能二配置真实数据源后删除这个临时排除项
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
 
 server:
   port: 8080
