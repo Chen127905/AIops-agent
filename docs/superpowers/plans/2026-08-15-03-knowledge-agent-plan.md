@@ -216,7 +216,7 @@ git commit -m "feat: persist agent execution state"
 - Consumes: ticket, knowledge retriever, model gateway, tool facade, and agent persistence.
 - Produces: `TaskOutcome AgentWorkflowEngine.execute(AgentTaskCommand command)` and `TaskOutcome OpsAgentWorkflow.run(long taskId)`. `OpsAgentWorkflow` owns application orchestration and calls the port; `AlibabaGraphWorkflowEngine` owns all Spring AI Alibaba Graph types and structured state keys for classification, evidence, plan, tool results, decision, verification, citations, and final report.
 
-- [ ] **Step 1: Write a failing fixed-model workflow test**
+- [x] **Step 1: Write a failing fixed-model workflow test**
 
 ```java
 @Test
@@ -232,7 +232,7 @@ void diagnosesRedisTimeoutWithExpectedEvidenceAndTools() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=OpsAgentWorkflowTest test`
 
