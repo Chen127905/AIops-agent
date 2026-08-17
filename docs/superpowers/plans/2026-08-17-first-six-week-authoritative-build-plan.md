@@ -110,7 +110,7 @@ Execute Foundation Task 4 in full, retaining Spring AI 2.0.0. Spring AI Alibaba 
 
 Run the deterministic gateway contract test from Foundation Task 4. Then, only when credentials exist, run the separately tagged live probes and record provider, model, latency, token usage, and structured-output result without committing secrets.
 
-- [ ] **Step 5: Bootstrap the Vue application**
+- [x] **Step 5: Bootstrap the Vue application**
 
 Execute Foundation Task 5 in full. Provide router, API client, authentication state, global error handling, test runner, and production build scripts; do not implement final workflow pages yet.
 
@@ -124,7 +124,7 @@ npm --prefix web run build
 
 Expected: the shell tests pass and TypeScript production build completes without errors.
 
-- [ ] **Step 6: Run the Foundation acceptance gate**
+- [x] **Step 6: Run the Foundation acceptance gate**
 
 Run the complete gate from `2026-08-15-01-foundation-plan.md`, followed by existing MySQL ticket tests. Commit each Foundation task separately using the messages defined in that plan. Do not squash unrelated database, security, model, and frontend changes into one commit.
 

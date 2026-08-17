@@ -360,7 +360,7 @@ git commit -m "feat: add qwen and deepseek model gateway"
 - Consumes: `/api/auth/login` and `/api/auth/me` from Task 3.
 - Produces: authenticated Vue shell and bearer-token HTTP interceptor used by later pages.
 
-- [ ] **Step 1: Write the failing login component test**
+- [x] **Step 1: Write the failing login component test**
 
 ```ts
 it('stores token and redirects after login', async () => {
@@ -373,17 +373,17 @@ it('stores token and redirects after login', async () => {
 })
 ```
 
-- [ ] **Step 2: Run the test to verify failure**
+- [x] **Step 2: Run the test to verify failure**
 
 Run: `npm --prefix web test -- --run`
 
 Expected: FAIL because the Vue project is absent.
 
-- [ ] **Step 3: Create Vue 3, Router, Pinia, Axios, Vitest and login shell**
+- [x] **Step 3: Create Vue 3, Router, Pinia, Axios, Vitest and login shell**
 
 Persist the token in local storage, attach `Authorization: Bearer <token>`, clear it on 401, and guard authenticated routes. Do not implement additional pages in this task.
 
-- [ ] **Step 4: Run frontend verification**
+- [x] **Step 4: Run frontend verification**
 
 Run: `npm --prefix web test -- --run`
 
@@ -393,7 +393,7 @@ Run: `npm --prefix web run build`
 
 Expected: PASS without TypeScript errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web README.md

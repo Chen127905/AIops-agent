@@ -1,0 +1,24 @@
+import { createApp } from 'vue'
+
+import App from './App.vue'
+import { AUTH_UNAUTHORIZED_EVENT } from './api/http'
+import router from './router'
+import { pinia } from './stores'
+import { useAuthStore } from './stores/auth'
+import './styles.css'
+
+const app = createApp(App)
+app.use(pinia)
+app.use(router)
+
+window.addEventListener(AUTH_UNAUTHORIZED_EVENT, () => {
+  useAuthStore(pinia).clearSession()
+  if (router.currentRoute.value.name !== 'login') {
+    void router.replace({
+      name: 'login',
+      query: { redirect: router.currentRoute.value.fullPath },
+    })
+  }
+})
+
+app.mount('#app')
