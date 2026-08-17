@@ -163,7 +163,7 @@ git commit -m "feat: add tenant safe knowledge retrieval"
 - Consumes: ticket ID and tenant context.
 - Produces: `AgentTask start(long ticketId, AgentBudget budget)`, `boolean claim(long taskId, String workerId, Duration lease)`, `void appendStep(StepRecord record)`, and monotonic `AgentEvent` sequence numbers.
 
-- [ ] **Step 1: Write a failing active-task uniqueness test**
+- [x] **Step 1: Write a failing active-task uniqueness test**
 
 ```java
 @Test
@@ -174,17 +174,17 @@ void allowsOnlyOneActiveTaskPerTicket() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=AgentTaskServiceIT test`
 
 Expected: FAIL because task persistence is absent.
 
-- [ ] **Step 3: Implement persistence and conditional claims**
+- [x] **Step 3: Implement persistence and conditional claims**
 
 Create tables `agent_task`, `agent_step`, `model_invocation`, `tool_invocation`, and `agent_event`. Use a generated `active_guard` value of `1` for active states and `NULL` for terminal states, with unique `(tenant_id, ticket_id, active_guard)`. Claim and renew leases through conditional updates.
 
-- [ ] **Step 4: Run persistence tests and commit**
+- [x] **Step 4: Run persistence tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=AgentTaskServiceIT test`
 

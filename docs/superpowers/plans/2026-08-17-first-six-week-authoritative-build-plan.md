@@ -204,7 +204,7 @@ Execute Knowledge and Agent Task 2 in full. Apply tenant and published-version f
 
 Run the PostgreSQL Testcontainer suite. Expected: another tenant's highest-similarity chunk is never returned or cited.
 
-- [ ] **Step 3: Persist task, step, model, tool, and event records**
+- [x] **Step 3: Persist task, step, model, tool, and event records**
 
 Execute Knowledge and Agent Task 3 in full. Enforce one active task per ticket, conditional state changes, monotonic event sequence, normalized tool arguments, idempotency identity, token and latency records, and redacted error summaries.
 
