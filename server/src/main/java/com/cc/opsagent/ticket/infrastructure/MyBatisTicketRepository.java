@@ -5,6 +5,8 @@ import com.cc.opsagent.ticket.domain.Ticket;
 import com.cc.opsagent.ticket.domain.TicketStatus;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public class MyBatisTicketRepository implements TicketRepository {
 
@@ -22,6 +24,20 @@ public class MyBatisTicketRepository implements TicketRepository {
     @Override
     public Ticket findByTenantIdAndId(long tenantId, long ticketId) {
         return ticketMapper.selectByTenantIdAndId(tenantId, ticketId);
+    }
+
+    @Override
+    public List<Ticket> findPageByTenantId(
+            long tenantId,
+            TicketStatus status,
+            int offset,
+            int size) {
+        return ticketMapper.selectPageByTenantId(tenantId, status, offset, size);
+    }
+
+    @Override
+    public long countByTenantId(long tenantId, TicketStatus status) {
+        return ticketMapper.countByTenantId(tenantId, status);
     }
 
     @Override

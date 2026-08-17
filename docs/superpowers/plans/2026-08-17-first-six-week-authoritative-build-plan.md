@@ -143,11 +143,14 @@ Run the complete gate from `2026-08-15-01-foundation-plan.md`, followed by exist
 - Consumes: authenticated `TenantContext`, completed `TicketRepository`, ticket state machine, scenario resources.
 - Produces: tenant-safe ticket REST APIs, five deterministic fault scenarios, `OpsDataProvider`, five read-only tools, two high-risk tools, strong parameter types, risk decisions, and idempotency keys.
 
-- [ ] **Step 1: Mark Ticket and Simulator Task 1 as satisfied by the focused ticket plan**
+- [x] **Step 1: Mark Ticket and Simulator Task 1 as satisfied by the focused ticket plan**
 
 Do not reimplement or rewrite the state machine, V2 migration, `TicketRepository`, or package-private `TicketMapper`. Record commits `d37fc81`, `8575d85`, `a209175`, and `04343e3` as the accepted implementation for that overlapping task.
 
-- [ ] **Step 2: Implement ticket application and REST behavior**
+Accepted after focused verification: `TicketStateMachineTest` (25 tests) and
+`TicketMapperIT` against MySQL 8.4 Testcontainers (5 tests) pass on Java 21.
+
+- [x] **Step 2: Implement ticket application and REST behavior**
 
 Execute Ticket and Simulator Task 2 in full. Create, retrieve, list, cancel, and transition operations must derive tenant/user from security context. Return `404` for an absent ticket and a ticket owned by another tenant so the API does not disclose resource existence.
 

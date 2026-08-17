@@ -56,7 +56,7 @@ server/src/main/resources/db/mysql/V2__ticket_and_simulator.sql
 - Consumes: `TenantContext.requireTenantId()` and authenticated user ID.
 - Produces: `boolean TicketStateMachine.canTransition(TicketStatus from, TicketStatus to)` and tenant-scoped mapper methods.
 
-- [ ] **Step 1: Write failing transition tests**
+- [x] **Step 1: Write failing transition tests**
 
 ```java
 @ParameterizedTest
@@ -74,21 +74,21 @@ void rejectsResolvedToRunning() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=TicketStateMachineTest test`
 
 Expected: FAIL because the state machine does not exist.
 
-- [ ] **Step 3: Implement explicit transition sets**
+- [x] **Step 3: Implement explicit transition sets**
 
 Define normal and exceptional transitions in immutable maps. `RESOLVED`, `FAILED`, `CANCELLED`, `TIMEOUT`, and `MANUAL_REQUIRED` are terminal. In `V2__ticket_and_simulator.sql`, create the tenant-scoped ticket tables and `tenant_tool_policy`; seed no tenant-specific policy rows in the migration.
 
-- [ ] **Step 4: Add tenant and optimistic-transition persistence tests**
+- [x] **Step 4: Add tenant and optimistic-transition persistence tests**
 
 Insert two tenants' tickets. Assert tenant A cannot select tenant B's ticket. Execute two updates from `OPEN` to `TRIAGING` using `WHERE id=? AND tenant_id=? AND status='OPEN'`; assert exactly one update succeeds.
 
-- [ ] **Step 5: Run ticket tests and commit**
+- [x] **Step 5: Run ticket tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=TicketStateMachineTest,TicketMapperIT test`
 
@@ -112,7 +112,7 @@ git commit -m "feat: add tenant ticket state machine"
 - Consumes: state machine and mapper from Task 1.
 - Produces: `TicketResponse create(CreateTicketCommand)`, `TicketResponse get(long id)`, `PageResult<TicketResponse> list(TicketQuery)`, and `void cancel(long id)`.
 
-- [ ] **Step 1: Write a failing API isolation test**
+- [x] **Step 1: Write a failing API isolation test**
 
 ```java
 mockMvc.perform(get("/api/tickets/{id}", tenantBTicketId)
@@ -120,17 +120,17 @@ mockMvc.perform(get("/api/tickets/{id}", tenantBTicketId)
     .andExpect(status().isNotFound());
 ```
 
-- [ ] **Step 2: Run the test to verify failure**
+- [x] **Step 2: Run the test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=TicketControllerIT test`
 
 Expected: FAIL because the API is absent.
 
-- [ ] **Step 3: Implement tenant-scoped CRUD and cancellation**
+- [x] **Step 3: Implement tenant-scoped CRUD and cancellation**
 
 Validate title length 5–120 and description length 10–4000. Ignore any tenant field in JSON. Cancellation is allowed only from non-terminal states and uses a conditional update.
 
-- [ ] **Step 4: Run API tests and commit**
+- [x] **Step 4: Run API tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=TicketControllerIT test`
 

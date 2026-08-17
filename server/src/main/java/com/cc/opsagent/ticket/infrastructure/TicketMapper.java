@@ -8,6 +8,8 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.List;
+
 @Mapper
 interface TicketMapper extends BaseMapper<Ticket> {
 
@@ -21,6 +23,40 @@ interface TicketMapper extends BaseMapper<Ticket> {
     Ticket selectByTenantIdAndId(
             @Param("tenantId") long tenantId,
             @Param("ticketId") long ticketId);
+
+    @Select("""
+            <script>
+            SELECT id, tenant_id, reporter_id, title, description,
+                   affected_service, category, severity, status,
+                   resolution_summary, created_at, updated_at
+            FROM ticket
+            WHERE tenant_id = #{tenantId}
+            <if test="status != null">
+              AND status = #{status}
+            </if>
+            ORDER BY created_at DESC, id DESC
+            LIMIT #{size} OFFSET #{offset}
+            </script>
+            """)
+    List<Ticket> selectPageByTenantId(
+            @Param("tenantId") long tenantId,
+            @Param("status") TicketStatus status,
+            @Param("offset") int offset,
+            @Param("size") int size);
+
+    @Select("""
+            <script>
+            SELECT COUNT(*)
+            FROM ticket
+            WHERE tenant_id = #{tenantId}
+            <if test="status != null">
+              AND status = #{status}
+            </if>
+            </script>
+            """)
+    long countByTenantId(
+            @Param("tenantId") long tenantId,
+            @Param("status") TicketStatus status);
 
     @Update("""
             UPDATE ticket

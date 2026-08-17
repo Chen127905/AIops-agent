@@ -6,6 +6,9 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public final class TicketStateMachine {
 
     private static final Set<TicketStatus> EXCEPTIONAL_TERMINALS = EnumSet.of(
