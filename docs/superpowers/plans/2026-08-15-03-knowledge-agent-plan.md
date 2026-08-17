@@ -113,7 +113,7 @@ git commit -m "feat: add versioned knowledge ingestion"
 - Consumes: active pgvector chunks from Task 1.
 - Produces: `List<EvidenceChunk> retrieve(KnowledgeQuery query)` where the implementation derives tenant from `TenantContext`, plus the allowlisted read-only tool `searchRunbook(String query, int topK)`.
 
-- [ ] **Step 1: Write a failing cross-tenant retrieval test**
+- [x] **Step 1: Write a failing cross-tenant retrieval test**
 
 ```java
 @Test
@@ -126,17 +126,17 @@ void neverReturnsAnotherTenantsNearestChunk() {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify failure**
+- [x] **Step 2: Run the test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=PgVectorKnowledgeRetrieverIT test`
 
 Expected: FAIL because retriever is absent.
 
-- [ ] **Step 3: Implement vector search with mandatory metadata filters**
+- [x] **Step 3: Implement vector search with mandatory metadata filters**
 
 Use top K in range 1–10. Filter by `tenant_id`, active document version, and published status in the database query itself. Return citation IDs in the stable form `doc:{documentId}:v{version}:chunk:{chunkIndex}`. Implement `SearchRunbookTool` as the fifth read-only tool: it accepts only query and bounded top K, derives tenant server-side, delegates to `KnowledgeRetriever`, and returns cited evidence through the existing tool-policy envelope.
 
-- [ ] **Step 4: Run retrieval tests and commit**
+- [x] **Step 4: Run retrieval tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=PgVectorKnowledgeRetrieverIT test`
 

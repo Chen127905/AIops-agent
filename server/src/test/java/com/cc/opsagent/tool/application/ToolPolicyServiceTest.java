@@ -89,14 +89,14 @@ class ToolPolicyServiceTest {
     }
 
     @Test
-    void registersFourReadOnlyAndTwoHighRiskToolsWithFiveSecondTimeouts() {
-        assertThat(policy.descriptors()).hasSize(6);
+    void registersFiveReadOnlyAndTwoHighRiskToolsWithFiveSecondTimeouts() {
+        assertThat(policy.descriptors()).hasSize(7);
         assertThat(policy.descriptors())
                 .allSatisfy(descriptor ->
                         assertThat(descriptor.timeout()).hasSeconds(5));
         assertThat(policy.descriptors())
                 .filteredOn(descriptor -> descriptor.risk() == ToolRisk.READ_ONLY)
-                .hasSize(4);
+                .hasSize(5);
         assertThat(policy.descriptors())
                 .filteredOn(descriptor -> descriptor.risk() == ToolRisk.HIGH_RISK)
                 .hasSize(2);

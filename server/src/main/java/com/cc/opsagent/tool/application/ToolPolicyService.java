@@ -25,6 +25,7 @@ public class ToolPolicyService {
                         descriptor("queryMetrics", ToolRisk.READ_ONLY, false, 500, 0),
                         descriptor("queryLogs", ToolRisk.READ_ONLY, false, 200, 32 * 1024),
                         descriptor("getServiceDependencies", ToolRisk.READ_ONLY, false, 100, 0),
+                        descriptor("searchRunbook", ToolRisk.READ_ONLY, false, 20, 0),
                         descriptor("restartService", ToolRisk.HIGH_RISK, true, 1, 0),
                         descriptor("changeConfig", ToolRisk.HIGH_RISK, true, 1, 0))
                 .stream()

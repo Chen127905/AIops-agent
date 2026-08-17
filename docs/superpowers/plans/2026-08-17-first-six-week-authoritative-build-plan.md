@@ -198,7 +198,7 @@ Run the complete Ticket and Simulator acceptance gate. Expected: five scenarios 
 
 Execute Knowledge and Agent Task 1 in full. Persist document metadata in MySQL, chunks and embeddings in PostgreSQL, and explicit processing states. Reprocessing a document creates a new version and never exposes partially published chunks.
 
-- [ ] **Step 2: Implement tenant-safe retrieval and citations**
+- [x] **Step 2: Implement tenant-safe retrieval and citations**
 
 Execute Knowledge and Agent Task 2 in full. Apply tenant and published-version filters inside the vector query, not after retrieval. Return citation identifiers that bind tenant, document, version, chunk, and source.
 
