@@ -92,7 +92,7 @@ Execute Foundation Task 2 without replacing the verified MySQL configuration or 
 
 Run the exact PostgreSQL migration test named by Foundation Task 2. Expected: the extension and initial knowledge schema exist in a disposable PostgreSQL 16 database while existing MySQL integration tests remain green.
 
-- [ ] **Step 3: Implement JWT authentication and server-derived tenant context**
+- [x] **Step 3: Implement JWT authentication and server-derived tenant context**
 
 Execute Foundation Task 3 in full. Its negative tests must cover a missing token, invalid signature, expired token, wrong role, request-supplied tenant spoofing, and access to another tenant's resource. Store password hashes only; never return them or place them in JWT claims.
 

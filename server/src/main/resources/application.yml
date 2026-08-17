@@ -17,6 +17,11 @@ app:
       username: "${POSTGRES_USERNAME:ops_agent}"
       password: "${POSTGRES_PASSWORD:change-me-postgres}"
       driver-class-name: org.postgresql.Driver
+  security:
+    jwt:
+      issuer: ops-agent-platform
+      secret: "${JWT_SECRET:local-development-secret-change-before-production}"
+      ttl: "${JWT_TTL:PT2H}"
 
 server:
   port: 8080

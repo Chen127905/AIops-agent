@@ -233,7 +233,7 @@ git commit -m "feat: configure business and vector databases"
 - Consumes: `tenant` and `user_account` tables from Task 2.
 - Produces: `TenantContext.requireTenantId(): long`, `TenantContext.requireUserId(): long`, and bearer tokens containing `sub`, `tenant_id`, and `roles`.
 
-- [ ] **Step 1: Write failing tenant-context tests**
+- [x] **Step 1: Write failing tenant-context tests**
 
 ```java
 @Test
@@ -252,27 +252,27 @@ void rejectsMissingAuthentication() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=TenantContextTest test`
 
 Expected: FAIL because security types are absent.
 
-- [ ] **Step 3: Implement JWT and tenant context**
+- [x] **Step 3: Implement JWT and tenant context**
 
 Use an HMAC secret from `JWT_SECRET`. `TenantContext` reads only the authenticated `TenantPrincipal`; controllers and request bodies must not set it. Configure stateless security, allow `/api/auth/login` and `/actuator/health`, and require authentication elsewhere.
 
-- [ ] **Step 4: Add an authentication integration test**
+- [x] **Step 4: Add an authentication integration test**
 
 Seed one tenant and BCrypt user, POST `/api/auth/login`, assert a token is returned, then GET `/api/auth/me` with the token and assert the tenant comes from the token even when a conflicting `X-Tenant-Id` header is supplied.
 
-- [ ] **Step 5: Run security tests**
+- [x] **Step 5: Run security tests**
 
 Run: `mvn -f server/pom.xml -Dtest=TenantContextTest,AuthControllerIT test`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/src/main/java/com/cc/opsagent/identity server/src/test/java/com/cc/opsagent/identity
