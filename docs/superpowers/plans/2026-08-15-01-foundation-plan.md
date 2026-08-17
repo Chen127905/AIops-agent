@@ -296,7 +296,7 @@ git commit -m "feat: add jwt tenant authentication"
 - Consumes: Qwen `ChatModel`, OpenAI-compatible DeepSeek `ChatModel`.
 - Produces: `ModelReply ModelGateway.call(ModelProvider provider, ModelRequest request)` and `Flux<String> ModelGateway.stream(ModelProvider provider, ModelRequest request)`.
 
-- [ ] **Step 1: Write a failing routing test**
+- [x] **Step 1: Write a failing routing test**
 
 ```java
 @Test
@@ -308,15 +308,17 @@ void routesToRequestedProvider() {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify failure**
+- [x] **Step 2: Run the test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=SpringAiModelGatewayTest test`
 
 Expected: FAIL because the gateway does not exist.
 
-- [ ] **Step 3: Implement the provider-neutral gateway**
+- [x] **Step 3: Implement the provider-neutral gateway**
 
 Create separately named `ChatModel` beans. Configure Qwen from `AI_DASHSCOPE_API_KEY`; configure DeepSeek through the OpenAI-compatible base URL and `DEEPSEEK_API_KEY`. Keep retry and fallback outside the raw model beans so later tasks can record every attempt.
+
+Compatibility decision recorded during implementation: Spring AI Alibaba `2.0.0-M1.1` references a pre-GA Spring AI type (`ToolExecutionEligibilityPredicate`) that is absent from Spring AI `2.0.0`. Both Qwen and DeepSeek therefore use Spring AI `2.0.0`'s OpenAI-compatible client behind the project-owned gateway; Qwen targets DashScope's compatible-mode base URL. This removes the runtime linkage failure without leaking provider SDK types into application modules.
 
 Expose authenticated probe endpoints only under the `local` profile:
 
@@ -325,7 +327,7 @@ POST /api/local/model/probe/{provider}
 GET  /api/local/model/probe/{provider}/stream
 ```
 
-- [ ] **Step 4: Run unit and optional live probes**
+- [x] **Step 4: Run unit and optional live probes**
 
 Run: `mvn -f server/pom.xml -Dtest=SpringAiModelGatewayTest test`
 
@@ -333,7 +335,7 @@ Expected: PASS.
 
 With keys configured, run the app and call both probe endpoints. Expected: Qwen and DeepSeek each return `ok`; SSE emits at least one data event.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/main/java/com/cc/opsagent/model server/src/main/java/com/cc/opsagent/config/AiModelConfig.java server/src/test/java/com/cc/opsagent/model server/src/main/resources/application.yml

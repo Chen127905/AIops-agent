@@ -104,9 +104,9 @@ mvn -f server/pom.xml clean verify
 
 Expected: authenticated requests obtain tenant/user/role from the verified token, and spoofed tenant data cannot alter repository scope.
 
-- [ ] **Step 4: Verify Qwen and DeepSeek behind `ModelGateway`**
+- [x] **Step 4: Verify Qwen and DeepSeek behind `ModelGateway`**
 
-Execute Foundation Task 4 in full, retaining Spring AI 2.0.0 and Spring AI Alibaba 2.0.0-M1.1. Base application startup and deterministic tests must not require either API key. Wire provider adapters only when their required properties exist.
+Execute Foundation Task 4 in full, retaining Spring AI 2.0.0. Spring AI Alibaba 2.0.0-M1.1 was removed after an executable configuration test proved it references a pre-GA Spring AI type missing from 2.0.0. Qwen and DeepSeek use their OpenAI-compatible endpoints behind the project-owned gateway. Base application startup and deterministic tests must not require either API key. Wire provider adapters only when their required properties exist.
 
 Run the deterministic gateway contract test from Foundation Task 4. Then, only when credentials exist, run the separately tagged live probes and record provider, model, latency, token usage, and structured-output result without committing secrets.
 

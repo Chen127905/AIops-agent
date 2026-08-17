@@ -22,6 +22,15 @@ app:
       issuer: ops-agent-platform
       secret: "${JWT_SECRET:local-development-secret-change-before-production}"
       ttl: "${JWT_TTL:PT2H}"
+  ai:
+    qwen:
+      api-key: "${AI_DASHSCOPE_API_KEY:}"
+      base-url: "${AI_DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}"
+      model: "${AI_DASHSCOPE_MODEL:qwen-plus}"
+    deepseek:
+      api-key: "${DEEPSEEK_API_KEY:}"
+      base-url: "${DEEPSEEK_BASE_URL:https://api.deepseek.com}"
+      model: "${DEEPSEEK_MODEL:deepseek-chat}"
 
 server:
   port: 8080
