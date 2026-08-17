@@ -11,6 +11,12 @@ app:
       username: "${MYSQL_USERNAME:ops_agent}"
       password: "${MYSQL_PASSWORD:change-me-mysql}"
       driver-class-name: com.mysql.cj.jdbc.Driver
+    vector:
+      enabled: "${VECTOR_DATASOURCE_ENABLED:false}"
+      url: "${POSTGRES_URL:jdbc:postgresql://localhost:5433/ops_agent_vector}"
+      username: "${POSTGRES_USERNAME:ops_agent}"
+      password: "${POSTGRES_PASSWORD:change-me-postgres}"
+      driver-class-name: org.postgresql.Driver
 
 server:
   port: 8080

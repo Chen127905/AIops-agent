@@ -74,7 +74,7 @@ Verified baseline at commit `89c138c` on 2026-08-17:
 - Consumes: existing MySQL `tenant` and `user_account` tables, environment-provided Qwen and DeepSeek credentials, PostgreSQL connection properties.
 - Produces: authenticated `TenantContext`, JWT login/refresh boundary, project-owned `ModelGateway`, optional Qwen and DeepSeek adapters, PostgreSQL/pgvector application connectivity, and a buildable Vue shell.
 
-- [ ] **Step 1: Reconfirm the accepted baseline before new code**
+- [x] **Step 1: Reconfirm the accepted baseline before new code**
 
 ```powershell
 $env:JAVA_HOME='C:\Users\Administrator\.jdks\ms-21.0.12'
@@ -86,7 +86,7 @@ docker compose --project-directory . --env-file .env.example -f compose.yml conf
 
 Expected: Maven reports Java 21; 25 unit and 8 integration test invocations pass; Compose validation exits `0`.
 
-- [ ] **Step 2: Complete only the missing PostgreSQL half of Foundation Task 2**
+- [x] **Step 2: Complete only the missing PostgreSQL half of Foundation Task 2**
 
 Execute Foundation Task 2 without replacing the verified MySQL configuration or editing V1/V2. Add an explicitly configured knowledge datasource and a PostgreSQL Flyway location, prove startup remains possible when the knowledge datasource is disabled, and prove pgvector migrations against a PostgreSQL Testcontainer.
 
