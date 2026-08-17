@@ -202,7 +202,7 @@ git commit -m "feat: add deterministic ops scenarios"
 - Consumes: scenario catalog from Task 3.
 - Produces: `getHealth`, `queryMetrics`, `queryLogs`, `getDependencies`, and `executeApprovedOperation` with typed records.
 
-- [ ] **Step 1: Write failing deterministic behavior tests**
+- [x] **Step 1: Write failing deterministic behavior tests**
 
 ```java
 @Test
@@ -214,17 +214,17 @@ void approvedRestartMovesScenarioToRecoveredState() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=FixtureOpsDataProviderTest test`
 
 Expected: FAIL because the provider is absent.
 
-- [ ] **Step 3: Implement tenant-and-task scoped runtime state**
+- [x] **Step 3: Implement tenant-and-task scoped runtime state**
 
 Key mutable simulator state by `(tenantId, taskId, scenarioKey)`. Reading a scenario returns immutable copies. An operation fails when the service, operation, tenant, or task does not match the context.
 
-- [ ] **Step 4: Run test and commit**
+- [x] **Step 4: Run test and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=FixtureOpsDataProviderTest test`
 

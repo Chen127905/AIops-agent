@@ -168,7 +168,7 @@ Execute Ticket and Simulator Task 3 in full. Include database connection-pool ex
 
 Run the catalog parser tests named in that task. Expected: all five scenarios load, malformed resources fail fast, and scenario IDs are unique.
 
-- [ ] **Step 4: Implement `OpsDataProvider` and fixture state transitions**
+- [x] **Step 4: Implement `OpsDataProvider` and fixture state transitions**
 
 Execute Ticket and Simulator Task 4 in full. Reads return immutable typed results; approved writes mutate only in-memory/fixture scenario state and never execute operating-system commands.
 
