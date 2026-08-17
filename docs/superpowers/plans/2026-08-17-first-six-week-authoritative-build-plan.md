@@ -194,7 +194,7 @@ Run the complete Ticket and Simulator acceptance gate. Expected: five scenarios 
 - Consumes: authenticated tenant, `ModelGateway`, simulator/tool facade, PostgreSQL vector boundary, existing ticket API.
 - Produces: versioned knowledge ingestion, tenant-filtered `KnowledgeRetriever`, citations, persisted Agent execution records, controlled Graph workflow, background execution, and replayable SSE.
 
-- [ ] **Step 1: Implement versioned knowledge document ingestion**
+- [x] **Step 1: Implement versioned knowledge document ingestion**
 
 Execute Knowledge and Agent Task 1 in full. Persist document metadata in MySQL, chunks and embeddings in PostgreSQL, and explicit processing states. Reprocessing a document creates a new version and never exposes partially published chunks.
 

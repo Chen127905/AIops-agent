@@ -64,7 +64,7 @@ server/src/main/resources/runbooks/*.md
 - Consumes: authenticated tenant, DashScope embedding model, MySQL and pgvector.
 - Produces: `long ingest(IngestDocumentCommand command)` and versioned chunks containing tenant, document, version, index, source, content, metadata, and embedding.
 
-- [ ] **Step 1: Write a failing ingestion test**
+- [x] **Step 1: Write a failing ingestion test**
 
 ```java
 @Test
@@ -77,17 +77,17 @@ void replacesActiveVersionWithoutExposingOldChunks() {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify failure**
+- [x] **Step 2: Run the test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=DocumentIngestionServiceIT test`
 
 Expected: FAIL because the knowledge schema and service are absent.
 
-- [ ] **Step 3: Implement bounded parsing, chunking, embedding, and publication**
+- [x] **Step 3: Implement bounded parsing, chunking, embedding, and publication**
 
 Accept UTF-8 Markdown and text up to 2 MiB. Normalize line endings, reject empty documents, split by headings and then by a token-safe maximum size, embed chunks in batches, and publish a new version only after every chunk is stored. Failed ingestion leaves the previous active version unchanged.
 
-- [ ] **Step 4: Run ingestion tests and commit**
+- [x] **Step 4: Run ingestion tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=DocumentIngestionServiceIT test`
 

@@ -3,9 +3,14 @@ package com.cc.opsagent.config;
 import com.cc.opsagent.model.ModelGateway;
 import com.cc.opsagent.model.ModelProvider;
 import com.cc.opsagent.model.SpringAiModelGateway;
+import com.cc.opsagent.knowledge.application.EmbeddingGateway;
+import com.cc.opsagent.knowledge.infrastructure.SpringAiEmbeddingGateway;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.openai.OpenAiEmbeddingModel;
+import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +46,25 @@ public class AiModelConfig {
                 .build();
     }
 
+    @Bean("qwenEmbeddingModel")
+    @Conditional(QwenApiKeyConfigured.class)
+    public EmbeddingModel qwenEmbeddingModel(
+            @Value("${app.ai.qwen.api-key}") String apiKey,
+            @Value("${app.ai.qwen.base-url}") String baseUrl,
+            @Value("${app.ai.qwen.embedding-model:text-embedding-v4}") String model,
+            @Value("${app.ai.qwen.embedding-dimensions:1024}") int dimensions) {
+        OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder()
+                .apiKey(apiKey)
+                .baseUrl(baseUrl)
+                .model(model)
+                .dimensions(dimensions)
+                .maxRetries(0)
+                .build();
+        return OpenAiEmbeddingModel.builder()
+                .options(options)
+                .build();
+    }
+
     @Bean("deepseekChatModel")
     @Conditional(DeepSeekApiKeyConfigured.class)
     public ChatModel deepseekChatModel(
@@ -67,6 +91,19 @@ public class AiModelConfig {
         qwen.ifAvailable(model -> models.put(ModelProvider.QWEN, model));
         deepseek.ifAvailable(model -> models.put(ModelProvider.DEEPSEEK, model));
         return new SpringAiModelGateway(models);
+    }
+
+    @Bean
+    public EmbeddingGateway embeddingGateway(
+            @Qualifier("qwenEmbeddingModel") ObjectProvider<EmbeddingModel> qwen) {
+        EmbeddingModel model = qwen.getIfAvailable();
+        if (model == null) {
+            return texts -> {
+                throw new IllegalStateException(
+                        "Qwen embedding is unavailable because no API key is configured");
+            };
+        }
+        return new SpringAiEmbeddingGateway(model);
     }
 
     static final class QwenApiKeyConfigured implements Condition {

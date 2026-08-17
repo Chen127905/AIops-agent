@@ -3,6 +3,7 @@ package com.cc.opsagent.config;
 import com.cc.opsagent.model.ModelGateway;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +33,8 @@ class AiModelConfigTest {
                         "app.ai.qwen.model=qwen-test")
                 .run(context -> {
                     assertThat(context).hasBean("qwenChatModel");
+                    assertThat(context).hasBean("qwenEmbeddingModel");
+                    assertThat(context).hasSingleBean(EmbeddingModel.class);
                     assertThat(context).doesNotHaveBean("deepseekChatModel");
                 });
     }
