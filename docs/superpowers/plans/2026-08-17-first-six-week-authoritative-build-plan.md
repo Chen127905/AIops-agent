@@ -162,7 +162,7 @@ mvn -f server/pom.xml clean verify
 
 Expected: ticket domain, repository, service, security, and controller tests pass, including stale-state and cross-tenant cases.
 
-- [ ] **Step 3: Build and validate the deterministic scenario catalog**
+- [x] **Step 3: Build and validate the deterministic scenario catalog**
 
 Execute Ticket and Simulator Task 3 in full. Include database connection-pool exhaustion, Redis command timeout, API error-rate increase, message backlog, and disk-space exhaustion. Each scenario must declare evidence, root cause, required and forbidden tools, approval need, and post-operation state.
 

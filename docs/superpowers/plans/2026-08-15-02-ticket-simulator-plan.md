@@ -158,7 +158,7 @@ git commit -m "feat: expose ticket api"
 - Consumes: classpath YAML fixtures.
 - Produces: `OpsScenario ScenarioCatalog.require(String scenarioKey)` and immutable ground-truth records.
 
-- [ ] **Step 1: Write a failing fixture validation test**
+- [x] **Step 1: Write a failing fixture validation test**
 
 ```java
 @Test
@@ -169,17 +169,17 @@ void loadsFiveValidScenarios() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=ScenarioCatalogTest test`
 
 Expected: FAIL because fixtures and catalog are absent.
 
-- [ ] **Step 3: Implement schema validation and fixtures**
+- [x] **Step 3: Implement schema validation and fixtures**
 
 Every fixture must contain `key`, `service`, `category`, `severity`, `initialState`, `health`, `metrics`, `logs`, `dependencies`, `rootCause`, `expectedTools`, `forbiddenTools`, `requiresApproval`, `approvedOperation`, and `recoveredState`. Reject duplicate keys and missing fields at startup.
 
-- [ ] **Step 4: Run test and commit**
+- [x] **Step 4: Run test and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=ScenarioCatalogTest test`
 

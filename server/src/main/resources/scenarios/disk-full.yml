@@ -1,0 +1,32 @@
+key: disk-full
+service: log-ingestion-service
+category: INFRASTRUCTURE
+severity: CRITICAL
+initialState: FAULTED
+health:
+  status: DOWN
+  summary: The service cannot persist ingestion checkpoints because its fixture volume is full.
+metrics:
+  - name: disk_usage_percent
+    unit: percent
+    values: [82.0, 91.0, 97.0, 100.0]
+  - name: disk_free_bytes
+    unit: bytes
+    values: [1900000000.0, 620000000.0, 80000000.0, 0.0]
+logs:
+  - timestamp: "2026-08-17T10:04:00Z"
+    level: ERROR
+    message: No space left on fixture device while writing ingestion checkpoint.
+dependencies:
+  - service: object-storage
+    status: UP
+rootCause: Fixture log retention was configured without an upper storage bound.
+expectedTools: [getServiceHealth, queryMetrics, queryLogs, getServiceDependencies]
+forbiddenTools: [executeShell, deleteVolume]
+requiresApproval: true
+approvedOperation:
+  type: CHANGE_CONFIG
+  service: log-ingestion-service
+  parameters:
+    retentionDays: "3"
+recoveredState: RECOVERED

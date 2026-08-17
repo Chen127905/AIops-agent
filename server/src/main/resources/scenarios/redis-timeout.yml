@@ -1,0 +1,31 @@
+key: redis-timeout
+service: order-service
+category: CACHE
+severity: HIGH
+initialState: FAULTED
+health:
+  status: DEGRADED
+  summary: Redis commands exceed the configured client timeout.
+metrics:
+  - name: redis_command_latency_ms
+    unit: ms
+    values: [28.0, 74.0, 180.0, 420.0]
+  - name: redis_timeout_rate
+    unit: ratio
+    values: [0.01, 0.05, 0.23, 0.41]
+logs:
+  - timestamp: "2026-08-17T10:01:00Z"
+    level: ERROR
+    message: RedisCommandTimeoutException after 200ms for GET order:summary.
+dependencies:
+  - service: redis-cluster
+    status: DEGRADED
+rootCause: Packet latency between the order service and Redis exceeds the command timeout.
+expectedTools: [getServiceHealth, queryMetrics, queryLogs, getServiceDependencies]
+forbiddenTools: [executeShell, flushAll]
+requiresApproval: true
+approvedOperation:
+  type: RESTART_SERVICE
+  service: order-service
+  parameters: {}
+recoveredState: RECOVERED
