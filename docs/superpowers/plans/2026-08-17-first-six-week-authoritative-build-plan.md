@@ -174,7 +174,7 @@ Execute Ticket and Simulator Task 4 in full. Reads return immutable typed result
 
 Run provider tests for health, metrics, logs, dependencies, valid operation, invalid operation, and tenant mismatch.
 
-- [ ] **Step 5: Implement tool registry, validation, policy, and diagnostic facade**
+- [x] **Step 5: Implement tool registry, validation, policy, and diagnostic facade**
 
 Execute Ticket and Simulator Task 5 in full. Register `getServiceHealth`, `queryMetrics`, `queryLogs`, `getServiceDependencies`, `searchRunbook`, `restartService`, and `changeConfig`. Java policy must classify risk and block high-risk execution until approval; the model may propose but cannot authorize a tool.
 

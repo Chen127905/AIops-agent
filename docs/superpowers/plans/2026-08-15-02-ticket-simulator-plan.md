@@ -249,7 +249,7 @@ git commit -m "feat: add fixture ops data provider"
 - Consumes: `OpsDataProvider` and `TenantContext`.
 - Produces: typed methods `getServiceHealth`, `queryMetrics`, `queryLogs`, `getServiceDependencies`, `restartService`, and `changeConfig`; `ToolDecision evaluate(ToolInvocationRequest request)`.
 
-- [ ] **Step 1: Write failing policy tests**
+- [x] **Step 1: Write failing policy tests**
 
 ```java
 @Test
@@ -265,17 +265,17 @@ void forbidsUnknownTool() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=ToolPolicyServiceTest,OpsToolFacadeTest test`
 
 Expected: FAIL because policies and facade are absent.
 
-- [ ] **Step 3: Implement an allowlist and bounded results**
+- [x] **Step 3: Implement an allowlist and bounded results**
 
 Register four simulator-backed read-only tools and two high-risk tools. The fifth read-only tool, `searchRunbook`, is added with the knowledge module in the next plan. Limit log results to 200 lines and 32 KiB, metric points to 500, and every tool timeout to five seconds. `restartService` and `changeConfig` return `APPROVAL_REQUIRED` instead of executing when no approved request ID is present.
 
-- [ ] **Step 4: Run tool tests and commit**
+- [x] **Step 4: Run tool tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=ToolPolicyServiceTest,OpsToolFacadeTest test`
 
