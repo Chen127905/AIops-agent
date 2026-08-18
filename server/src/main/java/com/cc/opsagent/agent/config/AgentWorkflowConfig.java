@@ -19,6 +19,7 @@ import com.cc.opsagent.knowledge.application.KnowledgeRetriever;
 import com.cc.opsagent.model.ModelGateway;
 import com.cc.opsagent.model.ModelProvider;
 import com.cc.opsagent.ticket.application.TicketService;
+import com.cc.opsagent.approval.application.ApprovalRequestCreator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -57,8 +58,11 @@ public class AgentWorkflowConfig {
             AgentWorkflowEngine engine,
             @Value("${app.agent.provider:QWEN}") ModelProvider provider,
             @Value("${app.agent.worker-id:local-agent-worker}") String workerId,
-            @Value("${app.agent.lease:PT4M}") java.time.Duration lease) {
+            @Value("${app.agent.lease:PT4M}") java.time.Duration lease,
+            ApprovalRequestCreator approvals,
+            @Value("${app.agent.approval-ttl:PT30M}") java.time.Duration approvalTtl) {
         return new OpsAgentWorkflow(
-                tasks, events, tickets, engine, provider, workerId, lease);
+                tasks, events, tickets, engine, provider, workerId, lease,
+                approvals, approvalTtl);
     }
 }

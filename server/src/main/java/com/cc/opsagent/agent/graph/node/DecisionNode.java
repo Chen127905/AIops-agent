@@ -4,6 +4,8 @@ import com.cc.opsagent.agent.application.AgentExecutionAudit;
 import com.cc.opsagent.agent.graph.OpsAgentState;
 import com.cc.opsagent.model.ModelGateway;
 
+import java.util.Map;
+
 public class DecisionNode extends StructuredModelNode implements OpsAgentNode {
 
     public DecisionNode(ModelGateway model) { super(model); }
@@ -18,7 +20,7 @@ public class DecisionNode extends StructuredModelNode implements OpsAgentNode {
         try {
             Decision decision = callStructured(state, """
                     Decide the root cause and proposed action from validated observations.
-                    Return JSON with rootCause, proposedAction and confidence.
+                    Return JSON with rootCause, proposedAction, actionArguments and confidence.
                     Ticket category: %s; observations: %s
                     """.formatted(state.category(), state.observations()), Decision.class);
             if (decision.rootCause() == null || decision.rootCause().isBlank()
@@ -26,13 +28,30 @@ public class DecisionNode extends StructuredModelNode implements OpsAgentNode {
                     || decision.confidence() < 0 || decision.confidence() > 1) {
                 throw new IllegalArgumentException("invalid diagnostic decision");
             }
+            Map<String, Object> arguments = decision.actionArguments() == null
+                    ? Map.of() : Map.copyOf(decision.actionArguments());
+            if ("changeConfig".equals(decision.proposedAction())
+                    && !hasConfigurationChanges(arguments)) {
+                throw new IllegalArgumentException(
+                        "changeConfig requires non-empty actionArguments.changes");
+            }
             state.decision(
-                    decision.rootCause(), decision.proposedAction(), decision.confidence());
+                    decision.rootCause(), decision.proposedAction(),
+                    arguments, decision.confidence());
         } catch (RuntimeException exception) {
             state.fail(exception.getMessage());
         }
         return state;
     }
 
-    public record Decision(String rootCause, String proposedAction, double confidence) { }
+    public record Decision(
+            String rootCause,
+            String proposedAction,
+            Map<String, Object> actionArguments,
+            double confidence) { }
+
+    private boolean hasConfigurationChanges(Map<String, Object> arguments) {
+        return arguments.get("changes") instanceof Map<?, ?> changes
+                && !changes.isEmpty();
+    }
 }

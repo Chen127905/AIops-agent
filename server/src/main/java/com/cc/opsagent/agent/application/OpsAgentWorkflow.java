@@ -3,6 +3,7 @@ package com.cc.opsagent.agent.application;
 import com.cc.opsagent.agent.domain.AgentTask;
 import com.cc.opsagent.agent.domain.AgentTaskStatus;
 import com.cc.opsagent.model.ModelProvider;
+import com.cc.opsagent.approval.application.ApprovalRequestCreator;
 import com.cc.opsagent.ticket.application.TicketService;
 import com.cc.opsagent.ticket.web.TicketResponse;
 
@@ -10,6 +11,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 public class OpsAgentWorkflow {
 
@@ -20,6 +22,8 @@ public class OpsAgentWorkflow {
     private final ModelProvider provider;
     private final String workerId;
     private final Duration lease;
+    private final ApprovalRequestCreator approvals;
+    private final Duration approvalTtl;
 
     public OpsAgentWorkflow(
             AgentTaskService taskService,
@@ -29,6 +33,20 @@ public class OpsAgentWorkflow {
             ModelProvider provider,
             String workerId,
             Duration lease) {
+        this(taskService, eventService, ticketService, engine, provider,
+                workerId, lease, ApprovalRequestCreator.noop(), Duration.ofMinutes(30));
+    }
+
+    public OpsAgentWorkflow(
+            AgentTaskService taskService,
+            AgentEventService eventService,
+            TicketService ticketService,
+            AgentWorkflowEngine engine,
+            ModelProvider provider,
+            String workerId,
+            Duration lease,
+            ApprovalRequestCreator approvals,
+            Duration approvalTtl) {
         this.taskService = taskService;
         this.eventService = eventService;
         this.ticketService = ticketService;
@@ -40,8 +58,16 @@ public class OpsAgentWorkflow {
         if (lease == null || lease.isZero() || lease.isNegative()) {
             throw new IllegalArgumentException("agent lease must be positive");
         }
+        if (approvals == null) {
+            throw new IllegalArgumentException("approval creator must not be null");
+        }
+        if (approvalTtl == null || approvalTtl.isZero() || approvalTtl.isNegative()) {
+            throw new IllegalArgumentException("approval TTL must be positive");
+        }
         this.workerId = workerId.trim();
         this.lease = lease;
+        this.approvals = approvals;
+        this.approvalTtl = approvalTtl;
     }
 
     public TaskOutcome run(long taskId) {
@@ -72,11 +98,51 @@ public class OpsAgentWorkflow {
             throw new IllegalStateException(
                     "agent task status changed before workflow completion");
         }
-        eventService.append(taskId, "TASK_COMPLETED", Map.of(
+        if (outcome.status() == AgentTaskStatus.WAITING_APPROVAL) {
+            outcome = createApprovalOrRequireManual(task, outcome);
+        }
+        String eventType = outcome.status() == AgentTaskStatus.WAITING_APPROVAL
+                ? "TASK_SUSPENDED" : "TASK_COMPLETED";
+        eventService.append(taskId, eventType, Map.of(
                 "status", outcome.status().name(),
                 "toolCount", outcome.toolNames().size(),
                 "citationCount", outcome.citations().size()));
         return outcome;
+    }
+
+    private TaskOutcome createApprovalOrRequireManual(
+            AgentTask task,
+            TaskOutcome outcome) {
+        try {
+            TicketResponse ticket = ticketService.get(task.ticketId());
+            Map<String, Object> arguments =
+                    new LinkedHashMap<>(outcome.actionArguments());
+            arguments.put("service", requireText(
+                    "affected service", ticket.affectedService()));
+            approvals.create(
+                    task.id(), "task:" + task.id() + ":verify",
+                    requireText("ticket category", ticket.category())
+                            .toLowerCase(Locale.ROOT).replace('_', '-'),
+                    requireText("proposed action", outcome.proposedAction()),
+                    arguments, approvalTtl);
+            return outcome;
+        } catch (RuntimeException exception) {
+            if (!taskService.transition(
+                    task.id(), AgentTaskStatus.WAITING_APPROVAL,
+                    AgentTaskStatus.MANUAL_REQUIRED)) {
+                throw new IllegalStateException(
+                        "approval creation failed and task state changed concurrently",
+                        exception);
+            }
+            String error = SensitiveDataRedactor.redact(exception.getMessage());
+            eventService.append(task.id(), "APPROVAL_CREATION_FAILED",
+                    error == null ? Map.of() : Map.of("error", error));
+            return new TaskOutcome(
+                    AgentTaskStatus.MANUAL_REQUIRED,
+                    outcome.rootCause(), outcome.toolNames(), outcome.citations(),
+                    outcome.proposedAction(), outcome.report(), error,
+                    outcome.actionArguments());
+        }
     }
 
     private AgentTaskCommand command(AgentTask task, TicketResponse ticket) {

@@ -58,7 +58,7 @@ web/src/views/EvaluationView.vue
 - Consumes: suspended task checkpoint and high-risk `ToolInvocationRequest`.
 - Produces: `ApprovalRequest create(...)`, `ResumeCommand approve(long approvalId, String comment)`, and `ResumeCommand reject(long approvalId, String comment)`.
 
-- [ ] **Step 1: Write a failing concurrent approval test**
+- [x] **Step 1: Write a failing concurrent approval test**
 
 ```java
 @Test
@@ -70,17 +70,17 @@ void consumesApprovalExactlyOnce() throws Exception {
 }
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=ApprovalServiceIT test`
 
 Expected: FAIL because approval persistence is absent.
 
-- [ ] **Step 3: Implement atomic decision and resume**
+- [x] **Step 3: Implement atomic decision and resume**
 
 Store normalized tool parameters, risk, expiry, requester, approver, decision, and checkpoint ID. Approve through `UPDATE ... WHERE status='PENDING' AND expires_at > now() AND tenant_id=?`. Only the winner enqueues resume. Revalidate tool policy when resuming; do not trust the original model proposal blindly.
 
-- [ ] **Step 4: Run approval tests and commit**
+- [x] **Step 4: Run approval tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=ApprovalServiceIT test`
 

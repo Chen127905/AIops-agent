@@ -24,6 +24,7 @@ public final class OpsAgentState {
     private final List<ToolObservation> observations = new ArrayList<>();
     private String rootCause;
     private String proposedAction;
+    private Map<String, Object> actionArguments = Map.of();
     private double confidence;
     private AgentTaskStatus status = AgentTaskStatus.RUNNING;
     private AgentTaskStatus verifiedStatus;
@@ -90,7 +91,8 @@ public final class OpsAgentState {
                 evidence.stream().map(EvidenceChunk::citationId).toList(),
                 proposedAction,
                 report,
-                error);
+                error,
+                actionArguments);
     }
 
     public int nextStepSequence() { return steps + 1; }
@@ -113,6 +115,7 @@ public final class OpsAgentState {
         }
         if (rootCause != null) snapshot.put("rootCause", rootCause);
         if (proposedAction != null) snapshot.put("proposedAction", proposedAction);
+        if (!actionArguments.isEmpty()) snapshot.put("actionArguments", actionArguments);
         if (report != null) snapshot.put("report", report);
         return Map.copyOf(snapshot);
     }
@@ -131,9 +134,17 @@ public final class OpsAgentState {
     public void observation(ToolObservation value) { observations.add(value); }
     public String rootCause() { return rootCause; }
     public String proposedAction() { return proposedAction; }
+    public Map<String, Object> actionArguments() { return actionArguments; }
     public double confidence() { return confidence; }
-    public void decision(String cause, String action, double score) {
-        rootCause = cause; proposedAction = action; confidence = score;
+    public void decision(
+            String cause,
+            String action,
+            Map<String, Object> arguments,
+            double score) {
+        rootCause = cause;
+        proposedAction = action;
+        actionArguments = arguments == null ? Map.of() : Map.copyOf(arguments);
+        confidence = score;
     }
     public AgentTaskStatus status() { return status; }
     public void status(AgentTaskStatus value) { status = value; }

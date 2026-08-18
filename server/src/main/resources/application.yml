@@ -37,6 +37,7 @@ app:
     provider: "${AGENT_MODEL_PROVIDER:QWEN}"
     worker-id: "${AGENT_WORKER_ID:local-agent-worker}"
     lease: "${AGENT_LEASE:PT4M}"
+    approval-ttl: "${AGENT_APPROVAL_TTL:PT30M}"
     defaults:
       max-steps: "${AGENT_MAX_STEPS:12}"
       timeout: "${AGENT_TIMEOUT:PT3M}"

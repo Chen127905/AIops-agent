@@ -240,7 +240,7 @@ Expected: ingestion, tenant isolation, citations, task uniqueness, workflow succ
 - Consumes: suspended Agent checkpoint, persisted tool request, authenticated approver, production workflow, scenario ground truth, Micrometer registry.
 - Produces: exactly-once approval decisions, safe resume, cancellation/recovery, security envelopes, audit trail, at least 30 evaluation cases, stored metrics, and correlated operational telemetry.
 
-- [ ] **Step 1: Implement single-use approval and resume**
+- [x] **Step 1: Implement single-use approval and resume**
 
 Execute Approval and Delivery Task 1 in full. Atomically consume pending approvals with tenant, role, status, and expiry predicates. Revalidate tool policy during resume and enqueue execution only for the winning decision.
 

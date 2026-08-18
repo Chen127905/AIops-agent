@@ -2,6 +2,7 @@ package com.cc.opsagent.agent.application;
 
 import com.cc.opsagent.agent.domain.AgentTask;
 import com.cc.opsagent.agent.domain.AgentTaskStatus;
+import com.cc.opsagent.approval.application.ApprovalRequestCreator;
 import com.cc.opsagent.model.ModelProvider;
 import com.cc.opsagent.ticket.application.TicketService;
 import com.cc.opsagent.ticket.domain.TicketSeverity;
@@ -12,7 +13,9 @@ import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -82,6 +85,38 @@ class OpsAgentWorkflowTest {
                 .doesNotContain("secret-value");
         verify(tasks).transition(
                 100, AgentTaskStatus.RUNNING, AgentTaskStatus.FAILED);
+    }
+
+    @Test
+    void persistsAHighRiskProposalAsAnApprovalBeforeSuspending() {
+        ApprovalRequestCreator approvals = mock(ApprovalRequestCreator.class);
+        when(tasks.get(100)).thenReturn(queuedTask());
+        when(tasks.claim(100, "worker-a", Duration.ofSeconds(30)))
+                .thenReturn(true);
+        when(tickets.get(88)).thenReturn(ticket("REDIS_TIMEOUT"));
+        TaskOutcome waiting = new TaskOutcome(
+                AgentTaskStatus.WAITING_APPROVAL, "unsafe config",
+                List.of("queryLogs"), List.of("runbook-1"),
+                "changeConfig", null, null,
+                Map.of("changes", Map.of("routingVersion", "stable")));
+        when(engine.execute(any())).thenReturn(waiting);
+        when(tasks.transition(100, AgentTaskStatus.RUNNING,
+                AgentTaskStatus.WAITING_APPROVAL)).thenReturn(true);
+        OpsAgentWorkflow workflow = new OpsAgentWorkflow(
+                tasks, events, tickets, engine, ModelProvider.QWEN,
+                "worker-a", Duration.ofSeconds(30), approvals,
+                Duration.ofMinutes(20));
+
+        TaskOutcome outcome = workflow.run(100);
+
+        assertThat(outcome).isEqualTo(waiting);
+        verify(approvals).create(
+                100, "task:100:verify", "redis-timeout", "changeConfig",
+                Map.of(
+                        "service", "order-service",
+                        "changes", Map.of("routingVersion", "stable")),
+                Duration.ofMinutes(20));
+        verify(events).append(eq(100L), eq("TASK_SUSPENDED"), any());
     }
 
     private AgentTask queuedTask() {
