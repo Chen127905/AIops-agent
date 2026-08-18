@@ -1,5 +1,7 @@
 package com.cc.opsagent.config;
 
+import com.cc.opsagent.knowledge.application.EmbeddingGateway;
+import com.cc.opsagent.knowledge.infrastructure.LocalHashEmbeddingGateway;
 import com.cc.opsagent.model.ModelGateway;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
@@ -21,6 +23,9 @@ class AiModelConfigTest {
             assertThat(context).doesNotHaveBean("qwenChatModel");
             assertThat(context).doesNotHaveBean("deepseekChatModel");
             assertThat(context).doesNotHaveBean(ChatModel.class);
+            assertThat(context).hasSingleBean(EmbeddingGateway.class);
+            assertThat(context.getBean(EmbeddingGateway.class))
+                    .isInstanceOf(LocalHashEmbeddingGateway.class);
         });
     }
 
@@ -30,11 +35,13 @@ class AiModelConfigTest {
                 .withPropertyValues(
                         "app.ai.qwen.api-key=test-qwen-key",
                         "app.ai.qwen.base-url=https://dashscope.example",
-                        "app.ai.qwen.model=qwen-test")
+                        "app.ai.qwen.model=qwen-test",
+                        "app.ai.embedding.provider=QWEN")
                 .run(context -> {
                     assertThat(context).hasBean("qwenChatModel");
                     assertThat(context).hasBean("qwenEmbeddingModel");
                     assertThat(context).hasSingleBean(EmbeddingModel.class);
+                    assertThat(context).hasSingleBean(EmbeddingGateway.class);
                     assertThat(context).doesNotHaveBean("deepseekChatModel");
                 });
     }

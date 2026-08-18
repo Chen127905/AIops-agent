@@ -1,0 +1,53 @@
+import { flushPromises, mount } from '@vue/test-utils'
+import MockAdapter from 'axios-mock-adapter'
+import { afterEach, describe, expect, it } from 'vitest'
+
+import { api } from '../api/http'
+import KnowledgeView from './KnowledgeView.vue'
+
+describe('KnowledgeView', () => {
+  const mock = new MockAdapter(api)
+
+  afterEach(() => mock.reset())
+
+  it('ingests a document and renders pgvector search evidence', async () => {
+    mock.onPost('/api/knowledge/documents').reply(201, { documentId: 7 })
+    mock.onGet('/api/knowledge/search').reply(200, [{
+      documentId: 7,
+      documentVersion: 1,
+      chunkIndex: 0,
+      source: 'demo://redis-timeout-runbook',
+      content: 'Redis connection pool timeout troubleshooting',
+      score: 0.91,
+      citationId: 'tenant:1:doc:7:v1:chunk:0',
+    }])
+    const wrapper = mount(KnowledgeView, {
+      global: {
+        stubs: { ConsoleLayout: { template: '<div><slot /></div>' } },
+      },
+    })
+
+    await wrapper.get('[data-test=ingest-form]').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('文档 #7 已切分、向量化并发布')
+
+    await wrapper.get('.search-bar').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('tenant:1:doc:7:v1:chunk:0')
+    expect(wrapper.text()).toContain('Redis connection pool timeout troubleshooting')
+  })
+
+  it('shows the real HTTP failure instead of claiming pgvector is disabled', async () => {
+    mock.onGet('/api/knowledge/search').reply(500, { message: 'embedding provider failed' })
+    const wrapper = mount(KnowledgeView, {
+      global: {
+        stubs: { ConsoleLayout: { template: '<div><slot /></div>' } },
+      },
+    })
+
+    await wrapper.get('.search-bar').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('embedding provider failed')
+    expect(wrapper.text()).not.toContain('请确认 pgvector 已启用')
+  })
+})

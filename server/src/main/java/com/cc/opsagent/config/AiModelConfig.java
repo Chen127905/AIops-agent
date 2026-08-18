@@ -4,6 +4,7 @@ import com.cc.opsagent.model.ModelGateway;
 import com.cc.opsagent.model.ModelProvider;
 import com.cc.opsagent.model.SpringAiModelGateway;
 import com.cc.opsagent.knowledge.application.EmbeddingGateway;
+import com.cc.opsagent.knowledge.infrastructure.LocalHashEmbeddingGateway;
 import com.cc.opsagent.knowledge.infrastructure.SpringAiEmbeddingGateway;
 import com.cc.opsagent.security.SensitiveDataRedactor;
 import org.springframework.ai.chat.model.ChatModel;
@@ -24,6 +25,7 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.util.StringUtils;
 
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 
 @Configuration(proxyBeanMethods = false)
@@ -97,13 +99,22 @@ public class AiModelConfig {
     @Bean
     public EmbeddingGateway embeddingGateway(
             @Qualifier("qwenEmbeddingModel") ObjectProvider<EmbeddingModel> qwen,
-            ObjectProvider<SensitiveDataRedactor> redactors) {
+            ObjectProvider<SensitiveDataRedactor> redactors,
+            @Value("${app.ai.embedding.provider:LOCAL}") String provider) {
+        String selected = provider == null
+                ? "LOCAL"
+                : provider.trim().toUpperCase(Locale.ROOT);
+        if ("LOCAL".equals(selected)) {
+            return new LocalHashEmbeddingGateway();
+        }
+        if (!"QWEN".equals(selected)) {
+            throw new IllegalStateException(
+                    "Unsupported embedding provider: " + selected);
+        }
         EmbeddingModel model = qwen.getIfAvailable();
         if (model == null) {
-            return texts -> {
-                throw new IllegalStateException(
-                        "Qwen embedding is unavailable because no API key is configured");
-            };
+            throw new IllegalStateException(
+                    "Qwen embedding requires AI_DASHSCOPE_API_KEY");
         }
         return new SpringAiEmbeddingGateway(
                 model, redactors.getIfAvailable(SensitiveDataRedactor::new));

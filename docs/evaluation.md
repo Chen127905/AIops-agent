@@ -31,4 +31,4 @@ LIVE 必须显式提供 Key，并与 MOCK 分开存储：
 
 ## Packaged verification evidence
 
-2026-08-18 通过 Docker Compose 对外入口执行 `scripts/smoke.ps1`，实际持久化运行 ID 为 `2c5a9805-beca-4ddd-addb-0177a5b1dac7`，完整执行 30 条 MOCK 基线。该 ID 来自本机验收数据库；删除 Compose 数据卷后需以新运行 ID 为准。
+2026-08-18 通过 Docker Compose 对外入口执行增强后的 `scripts/smoke.ps1`，实际持久化运行 ID 为 `6a0d950a-cc01-4eaa-bff6-1cf78c261860`，完成知识入库、pgvector 检索、跨租户引用隔离和 30 条 MOCK 基线。该 ID 来自本机验收数据库；删除 Compose 数据卷后需以新运行 ID 为准。

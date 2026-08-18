@@ -4,6 +4,7 @@
 **/target/
 web/node_modules/
 web/dist/
+out/
 .idea/
 *.iml
 *.log

@@ -19,6 +19,18 @@ docker compose --env-file .env up -d --build
 
 `.env.example` 只含本地演示值。真实 JWT Secret、数据库密码和模型 Key 只能通过未提交的 `.env` 或密钥管理系统注入。
 
+## 验证知识库
+
+一键启动会启用 PostgreSQL/pgvector，并默认使用 `KNOWLEDGE_EMBEDDING_PROVIDER=LOCAL` 的本地确定性向量器，因此不配置模型 Key 也能验证完整的“文档切分 → 向量写入 → 租户过滤 → 相似度检索 → 引用”链路。
+
+登录 `acme / admin / demo-password` 后进入“知识库”，先点击“入库并发布”，再使用默认问题检索。页面会返回 `tenant:...:doc:...:chunk:...` 引用。也可以运行：
+
+```powershell
+pwsh -File scripts/smoke.ps1 -SkipComposeUp
+```
+
+Smoke 会真实入库一份文档、执行 pgvector 检索并检查跨租户引用隔离，不再只检查容器健康。
+
 ## 核心能力
 
 - 多租户 JWT 身份、角色授权与服务端租户隔离
@@ -31,7 +43,16 @@ docker compose --env-file .env up -d --build
 
 ## 模型配置
 
-无模型 Key 时平台仍可启动、运行 MOCK 评测与控制面演示；真实 Agent 诊断会明确失败，而不会伪造模型结果。配置 `AI_DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY` 后启用对应模型，使用 `AGENT_MODEL_PROVIDER=QWEN|DEEPSEEK` 选择默认供应商。
+无模型 Key 时平台仍可启动、使用本地词法向量验证知识库、运行 MOCK 评测与控制面演示；真实 Agent 诊断会明确失败，而不会伪造模型结果。配置 `AI_DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY` 后启用对应对话模型，使用 `AGENT_MODEL_PROVIDER=QWEN|DEEPSEEK` 选择默认供应商。
+
+本地向量器只用于离线演示和可重复验收，不冒充生产语义模型。需要 Qwen embedding 时，同时配置：
+
+```dotenv
+AI_DASHSCOPE_API_KEY=your-key
+KNOWLEDGE_EMBEDDING_PROVIDER=QWEN
+```
+
+切换 embedding 提供方后应重新入库文档，避免在同一知识版本中混用不同向量空间。
 
 ## 验证
 
@@ -45,7 +66,7 @@ docker compose --env-file .env.example build
 pwsh -File scripts/smoke.ps1
 ```
 
-权威验收基线为 96 个后端单元测试、56 个 Testcontainers 集成测试和 7 个前端测试。Smoke 真实检查健康、登录、工单、跨租户 404、Agent 状态边界与 30 条 MOCK 评测，并输出持久化 `evaluationRun`。
+权威验收基线为 99 个后端单元测试、56 个 Testcontainers 集成测试和 9 个前端测试。Smoke 真实检查健康、登录、知识入库与 pgvector 检索、跨租户隔离、工单、Agent 状态边界与 30 条 MOCK 评测，并输出持久化 `evaluationRun`。
 
 ## 文档
 

@@ -71,6 +71,22 @@ $foreignToken = Get-Token -TenantCode "beta" -Username "operator"
 $adminHeaders = @{ Authorization = "Bearer $adminToken" }
 $foreignHeaders = @{ Authorization = "Bearer $foreignToken" }
 
+$knowledge = Invoke-JsonRequest -Method POST -Path "/api/knowledge/documents" -Headers $adminHeaders -ExpectedStatus @(201) -Body @{
+    name = "Smoke Redis timeout runbook"
+    source = "smoke://redis-timeout-runbook"
+    mediaType = "text/markdown"
+    content = "# Redis connection pool timeout`nInspect pool utilization, command latency, and downstream dependencies before requesting an approved service restart."
+    metadata = @{ purpose = "smoke" }
+}
+if ($knowledge.documentId -le 0) { throw "Knowledge ingestion returned no document ID" }
+
+$evidence = @(Invoke-JsonRequest -Method GET -Path "/api/knowledge/search?query=Redis%20connection%20pool%20timeout&topK=5" -Headers $adminHeaders)
+if ($evidence.Count -lt 1) { throw "pgvector search returned no evidence after ingestion" }
+$ownCitation = $evidence[0].citationId
+if ([string]::IsNullOrWhiteSpace($ownCitation)) { throw "Knowledge search returned no citation" }
+$foreignEvidence = @(Invoke-JsonRequest -Method GET -Path "/api/knowledge/search?query=Redis%20connection%20pool%20timeout&topK=20" -Headers $foreignHeaders)
+if ($foreignEvidence.citationId -contains $ownCitation) { throw "Cross-tenant knowledge citation leaked" }
+
 $ticket = Invoke-JsonRequest -Method POST -Path "/api/tickets" -Headers $adminHeaders -ExpectedStatus @(201) -Body @{
     title = "Smoke Redis timeout incident"
     description = "Order service requests time out while acquiring Redis connections."
@@ -98,4 +114,4 @@ if ($evaluation.metrics.totalCases -lt 30) { throw "Evaluation did not execute t
 if ([string]::IsNullOrWhiteSpace($evaluation.runId)) { throw "Evaluation returned no persisted run ID" }
 
 Write-Host "SMOKE PASS"
-Write-Host "ticket=$($ticket.id) task=$($task.id) taskStatus=$($task.status) evaluationRun=$($evaluation.runId) cases=$($evaluation.metrics.totalCases)"
+Write-Host "knowledgeDocument=$($knowledge.documentId) citation=$ownCitation ticket=$($ticket.id) task=$($task.id) taskStatus=$($task.status) evaluationRun=$($evaluation.runId) cases=$($evaluation.metrics.totalCases)"

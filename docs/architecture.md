@@ -8,12 +8,13 @@ flowchart LR
     Nginx --> API["Spring Boot control plane"]
     API --> MySQL[(MySQL business state)]
     API --> Vector[(PostgreSQL + pgvector)]
+    API --> LocalEmbedding["Local lexical embedding (demo)"]
     API --> Model["Qwen / DeepSeek compatible APIs"]
     API --> Simulator["Deterministic ops simulator"]
     Prometheus["Prometheus scraper"] -->|admin protected| API
 ```
 
-宿主机只暴露 Web 端口。数据库和后端只在 Compose 网络内可达，前端反向代理 `/api`、`/actuator` 和长连接 SSE。
+宿主机只暴露 Web 端口。数据库和后端只在 Compose 网络内可达，前端反向代理 `/api`、`/actuator` 和长连接 SSE。Compose 默认用本地确定性词法向量器完成离线知识库验收；配置 `KNOWLEDGE_EMBEDDING_PROVIDER=QWEN` 和 DashScope Key 后可切换到 Qwen 语义向量。
 
 ## Backend boundaries
 

@@ -7,15 +7,16 @@ docker compose --env-file .env.example up -d --build
 pwsh -File scripts/smoke.ps1 -SkipComposeUp
 ```
 
-记录 smoke 输出的 ticket、task、taskStatus 和 evaluationRun。打开 `http://localhost:8088`，使用 `acme/admin/demo-password` 登录。
+记录 smoke 输出的 knowledgeDocument、citation、ticket、task、taskStatus 和 evaluationRun。打开 `http://localhost:8088`，使用 `acme/admin/demo-password` 登录。
 
 ## 2. Show the control loop
 
-1. 在“工单与 Agent”创建 Redis 超时工单。
-2. 启动 Agent，解释任务唯一性、预算和后台执行。
-3. 在时间线展示持久化节点、工具、引用和最终摘要；强调不展示隐藏推理。
-4. 刷新带 `?task=<id>` 的详情页，说明 SSE 从最后 sequence 重放而不重启任务。
-5. 对写工具场景进入“人工审批”，批准或拒绝一次并说明并发决策只有一个成功。
+1. 在“知识库”入库默认 Redis 手册并检索，展示 pgvector 相似度和不可变 citation。
+2. 在“工单与 Agent”创建 Redis 超时工单。
+3. 启动 Agent，解释任务唯一性、预算和后台执行。
+4. 在时间线展示持久化节点、工具、引用和最终摘要；强调不展示隐藏推理。
+5. 刷新带 `?task=<id>` 的详情页，说明 SSE 从最后 sequence 重放而不重启任务。
+6. 对写工具场景进入“人工审批”，批准或拒绝一次并说明并发决策只有一个成功。
 
 无真实模型 Key 时，真实 Agent 会以可审计失败结束；使用评测中心的 MOCK 路径演示完整确定性 Graph。配置 Qwen 或 DeepSeek Key 后再演示 LIVE 调用。
 
