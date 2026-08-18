@@ -1,5 +1,6 @@
 package com.cc.opsagent.agent.graph.node;
 
+import com.cc.opsagent.agent.application.AgentExecutionAudit;
 import com.cc.opsagent.agent.graph.OpsAgentState;
 import com.cc.opsagent.model.ModelGateway;
 
@@ -12,6 +13,10 @@ public class PlanNode extends StructuredModelNode implements OpsAgentNode {
             "getServiceHealth", "queryMetrics", "queryLogs", "getServiceDependencies");
 
     public PlanNode(ModelGateway model) { super(model); }
+
+    public PlanNode(ModelGateway model, AgentExecutionAudit audit) {
+        super(model, audit);
+    }
 
     @Override
     public OpsAgentState apply(OpsAgentState state) {

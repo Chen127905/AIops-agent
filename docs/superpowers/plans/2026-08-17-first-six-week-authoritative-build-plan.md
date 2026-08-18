@@ -208,7 +208,7 @@ Run the PostgreSQL Testcontainer suite. Expected: another tenant's highest-simil
 
 Execute Knowledge and Agent Task 3 in full. Enforce one active task per ticket, conditional state changes, monotonic event sequence, normalized tool arguments, idempotency identity, token and latency records, and redacted error summaries.
 
-- [ ] **Step 4: Build the deterministic workflow around a controlled diagnostic node**
+- [x] **Step 4: Build the deterministic workflow around a controlled diagnostic node**
 
 Execute Knowledge and Agent Task 4 in full. Deterministic Java nodes own state transitions, retrieval, risk decisions, approval boundaries, verification, and terminal outcomes. Model output must be parsed into typed records and validated before it influences a tool request.
 

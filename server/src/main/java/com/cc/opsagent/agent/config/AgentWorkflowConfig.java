@@ -1,6 +1,10 @@
 package com.cc.opsagent.agent.config;
 
 import com.cc.opsagent.agent.application.AgentWorkflowEngine;
+import com.cc.opsagent.agent.application.AgentExecutionAudit;
+import com.cc.opsagent.agent.application.AgentEventService;
+import com.cc.opsagent.agent.application.AgentTaskService;
+import com.cc.opsagent.agent.application.OpsAgentWorkflow;
 import com.cc.opsagent.agent.application.DiagnosticToolGateway;
 import com.cc.opsagent.agent.graph.OpsAgentGraphFactory;
 import com.cc.opsagent.agent.graph.node.DecisionNode;
@@ -13,6 +17,9 @@ import com.cc.opsagent.agent.graph.node.VerifyNode;
 import com.cc.opsagent.agent.infrastructure.AlibabaGraphWorkflowEngine;
 import com.cc.opsagent.knowledge.application.KnowledgeRetriever;
 import com.cc.opsagent.model.ModelGateway;
+import com.cc.opsagent.model.ModelProvider;
+import com.cc.opsagent.ticket.application.TicketService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,15 +35,30 @@ public class AgentWorkflowConfig {
     AgentWorkflowEngine agentWorkflowEngine(
             ModelGateway model,
             KnowledgeRetriever knowledge,
-            DiagnosticToolGateway tools) {
+            DiagnosticToolGateway tools,
+            AgentExecutionAudit audit) {
         OpsAgentGraphFactory factory = new OpsAgentGraphFactory(
-                new TriageNode(model),
+                new TriageNode(model, audit),
                 new RetrieveNode(knowledge),
-                new PlanNode(model),
-                new DiagnoseNode(tools),
-                new DecisionNode(model),
+                new PlanNode(model, audit),
+                new DiagnoseNode(tools, audit),
+                new DecisionNode(model, audit),
                 new VerifyNode(),
-                new SummarizeNode());
+                new SummarizeNode(),
+                audit);
         return new AlibabaGraphWorkflowEngine(factory);
+    }
+
+    @Bean
+    OpsAgentWorkflow opsAgentWorkflow(
+            AgentTaskService tasks,
+            AgentEventService events,
+            TicketService tickets,
+            AgentWorkflowEngine engine,
+            @Value("${app.agent.provider:QWEN}") ModelProvider provider,
+            @Value("${app.agent.worker-id:local-agent-worker}") String workerId,
+            @Value("${app.agent.lease:PT30S}") java.time.Duration lease) {
+        return new OpsAgentWorkflow(
+                tasks, events, tickets, engine, provider, workerId, lease);
     }
 }

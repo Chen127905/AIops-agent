@@ -7,11 +7,14 @@ import com.cc.opsagent.agent.domain.AgentTaskStatus;
 import com.cc.opsagent.knowledge.application.EvidenceChunk;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class OpsAgentState {
 
     private final AgentTaskCommand command;
+    private final long startedAtNanos;
     private int steps;
     private int tokens;
     private String category;
@@ -23,15 +26,20 @@ public final class OpsAgentState {
     private String proposedAction;
     private double confidence;
     private AgentTaskStatus status = AgentTaskStatus.RUNNING;
+    private AgentTaskStatus verifiedStatus;
     private String report;
     private String error;
 
     public OpsAgentState(AgentTaskCommand command) {
         this.command = command;
+        this.startedAtNanos = System.nanoTime();
     }
 
     public boolean enterStep() {
         if (terminal()) {
+            return false;
+        }
+        if (timedOut()) {
             return false;
         }
         steps++;
@@ -49,6 +57,7 @@ public final class OpsAgentState {
                 fail("agent token budget exceeded");
             }
         }
+        timedOut();
     }
 
     public boolean terminal() {
@@ -56,8 +65,21 @@ public final class OpsAgentState {
     }
 
     public void fail(String message) {
+        if (status == AgentTaskStatus.TIMED_OUT) {
+            return;
+        }
         status = AgentTaskStatus.FAILED;
         error = message;
+    }
+
+    private boolean timedOut() {
+        if (System.nanoTime() - startedAtNanos
+                >= command.budget().timeout().toNanos()) {
+            status = AgentTaskStatus.TIMED_OUT;
+            error = "agent timeout budget exceeded";
+            return true;
+        }
+        return false;
     }
 
     public TaskOutcome outcome() {
@@ -70,6 +92,32 @@ public final class OpsAgentState {
                 report,
                 error);
     }
+
+    public int nextStepSequence() { return steps + 1; }
+
+    public Map<String, Object> auditSnapshot() {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("status", status.name());
+        snapshot.put("steps", steps);
+        snapshot.put("tokens", tokens);
+        if (category != null) snapshot.put("category", category);
+        if (urgency != null) snapshot.put("urgency", urgency);
+        if (!evidence.isEmpty()) {
+            snapshot.put("citations", evidence.stream()
+                    .map(EvidenceChunk::citationId).toList());
+        }
+        if (!plannedTools.isEmpty()) snapshot.put("plannedTools", plannedTools);
+        if (!observations.isEmpty()) {
+            snapshot.put("observedTools", observations.stream()
+                    .map(ToolObservation::toolName).toList());
+        }
+        if (rootCause != null) snapshot.put("rootCause", rootCause);
+        if (proposedAction != null) snapshot.put("proposedAction", proposedAction);
+        if (report != null) snapshot.put("report", report);
+        return Map.copyOf(snapshot);
+    }
+
+    public String error() { return error; }
 
     public AgentTaskCommand command() { return command; }
     public String category() { return category; }
@@ -89,5 +137,13 @@ public final class OpsAgentState {
     }
     public AgentTaskStatus status() { return status; }
     public void status(AgentTaskStatus value) { status = value; }
+    public void verification(AgentTaskStatus value) { verifiedStatus = value; }
+    public void completeVerification() {
+        if (verifiedStatus == null) {
+            fail("agent verification result is missing");
+        } else {
+            status = verifiedStatus;
+        }
+    }
     public void report(String value) { report = value; }
 }

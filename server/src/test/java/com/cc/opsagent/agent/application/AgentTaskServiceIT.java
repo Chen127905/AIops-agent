@@ -4,6 +4,7 @@ import com.cc.opsagent.agent.domain.AgentEvent;
 import com.cc.opsagent.agent.domain.AgentStep;
 import com.cc.opsagent.agent.domain.AgentTask;
 import com.cc.opsagent.agent.domain.AgentTaskStatus;
+import com.cc.opsagent.agent.infrastructure.PersistentAgentExecutionAudit;
 import com.cc.opsagent.identity.security.TenantPrincipal;
 import com.cc.opsagent.tool.domain.ToolExecutionStatus;
 import com.cc.opsagent.tool.domain.ToolRisk;
@@ -58,6 +59,9 @@ class AgentTaskServiceIT {
 
     @Autowired
     AgentEventService eventService;
+
+    @Autowired
+    PersistentAgentExecutionAudit executionAudit;
 
     @Autowired
     @Qualifier("businessJdbcTemplate")
@@ -250,6 +254,41 @@ class AgentTaskServiceIT {
                 SELECT JSON_UNQUOTE(JSON_EXTRACT(normalized_arguments, '$.service'))
                 FROM tool_invocation WHERE id = ?
                 """, String.class, firstToolInvocationId)).isEqualTo("order-api");
+    }
+
+    @Test
+    void persistsNodeLifecycleAndItsModelAndToolAudit() {
+        AgentTask task = taskService.start(ticketA, defaultBudget());
+        executionAudit.nodeStarted(new AgentExecutionAudit.NodeAudit(
+                task.id(), 1, "triage", "STARTED",
+                Map.of("status", "RUNNING"), Map.of(), null, 0));
+        executionAudit.modelInvoked(new AgentExecutionAudit.ModelCallAudit(
+                task.id(), "QWEN", "fixed-model", "b".repeat(64),
+                "SUCCEEDED", 10, 5, 12, null));
+        executionAudit.toolInvoked(new AgentExecutionAudit.ToolCallAudit(
+                task.id(), "queryLogs", Map.of("service", "order-api"),
+                ToolRisk.READ_ONLY, ToolExecutionStatus.SUCCESS,
+                7, Map.of("lines", 4), null));
+        executionAudit.nodeCompleted(new AgentExecutionAudit.NodeAudit(
+                task.id(), 1, "triage", "SUCCEEDED",
+                Map.of("status", "RUNNING"),
+                Map.of("category", "REDIS_TIMEOUT"), null, 19));
+
+        assertThat(taskService.steps(task.id()))
+                .singleElement()
+                .satisfies(step -> {
+                    assertThat(step.nodeName()).isEqualTo("triage");
+                    assertThat(step.durationMs()).isEqualTo(19);
+                });
+        assertThat(eventService.after(task.id(), 0, 10))
+                .extracting(AgentEvent::eventType)
+                .containsExactly("NODE_STARTED", "NODE_COMPLETED");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM model_invocation WHERE task_id = ?",
+                Integer.class, task.id())).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM tool_invocation WHERE task_id = ?",
+                Integer.class, task.id())).isEqualTo(1);
     }
 
     private AgentBudget defaultBudget() {

@@ -238,13 +238,13 @@ Run: `mvn -f server/pom.xml -Dtest=OpsAgentWorkflowTest test`
 
 Expected: FAIL because the graph is absent.
 
-- [ ] **Step 3: Implement typed node inputs and outputs**
+- [x] **Step 3: Implement typed node inputs and outputs**
 
 Implement the graph inside `AlibabaGraphWorkflowEngine`. Use structured Java records for triage, plan, decision, and summary. Persist each node start, success, failure, duration, model call, and tool call. The diagnostic node may choose among allowlisted read-only tools only. Route a proposed high-risk action to a suspension outcome; approval execution is implemented in the next plan. Keep `AgentWorkflowEngine`, its command, and its result free of Alibaba or Spring AI types.
 
 Set default budget to 12 steps, 180 seconds, and a configurable Token ceiling. Stop with an explicit state when any limit is exceeded.
 
-- [ ] **Step 4: Run graph tests and commit**
+- [x] **Step 4: Run graph tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=OpsAgentWorkflowTest test`
 

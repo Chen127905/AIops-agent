@@ -13,11 +13,11 @@ public class VerifyNode implements OpsAgentNode {
     public OpsAgentState apply(OpsAgentState state) {
         if (!state.enterStep()) return state;
         if (HIGH_RISK.contains(state.proposedAction())) {
-            state.status(AgentTaskStatus.WAITING_APPROVAL);
+            state.verification(AgentTaskStatus.WAITING_APPROVAL);
         } else if ("NONE".equalsIgnoreCase(state.proposedAction())) {
-            state.status(AgentTaskStatus.SUCCEEDED);
+            state.verification(AgentTaskStatus.SUCCEEDED);
         } else {
-            state.status(AgentTaskStatus.MANUAL_REQUIRED);
+            state.verification(AgentTaskStatus.MANUAL_REQUIRED);
         }
         return state;
     }

@@ -1,5 +1,6 @@
 package com.cc.opsagent.agent.graph.node;
 
+import com.cc.opsagent.agent.application.AgentExecutionAudit;
 import com.cc.opsagent.agent.graph.OpsAgentState;
 import com.cc.opsagent.model.ModelGateway;
 
@@ -7,6 +8,10 @@ public class TriageNode extends StructuredModelNode implements OpsAgentNode {
 
     public TriageNode(ModelGateway model) {
         super(model);
+    }
+
+    public TriageNode(ModelGateway model, AgentExecutionAudit audit) {
+        super(model, audit);
     }
 
     @Override
