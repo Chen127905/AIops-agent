@@ -289,11 +289,11 @@ Acceptance result on 2026-08-18: `mvn -f server/pom.xml clean verify` passed wit
 - Consumes: authenticated ticket, Agent event, approval, knowledge, evaluation, and health APIs.
 - Produces: the six-page demonstration workflow, reconnectable timeline, production images, one-command Compose deployment, CI, smoke verification, and evidence-based documentation.
 
-- [ ] **Step 1: Complete the minimal Vue workflow UI**
+- [x] **Step 1: Complete the minimal Vue workflow UI**
 
 Execute Approval and Delivery Task 6 in full. Display structured plans, node state, redacted tool parameters, result summaries, citations, approvals, and final reports; never display hidden model reasoning. Reconnect SSE from the last persisted sequence.
 
-- [ ] **Step 2: Test and build the frontend**
+- [x] **Step 2: Test and build the frontend**
 
 ```powershell
 npm --prefix web ci
@@ -302,6 +302,8 @@ npm --prefix web run build
 ```
 
 Expected: component and composable tests pass; TypeScript and production bundling complete without error.
+
+Acceptance result on 2026-08-18: clean dependency install reported zero vulnerabilities, 7 frontend tests passed, and the Vite production build completed without TypeScript errors.
 
 - [ ] **Step 3: Package backend and frontend services**
 

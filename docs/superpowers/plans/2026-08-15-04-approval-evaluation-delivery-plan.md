@@ -310,7 +310,7 @@ git commit -m "feat: add agent observability"
 - Consumes: ticket, task event, approval, knowledge, and evaluation APIs.
 - Produces: six-page demonstration workflow with reconnectable SSE timeline.
 
-- [ ] **Step 1: Write a failing timeline test**
+- [x] **Step 1: Write a failing timeline test**
 
 ```ts
 it('reconnects after the last persisted sequence', async () => {
@@ -321,17 +321,17 @@ it('reconnects after the last persisted sequence', async () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `npm --prefix web test -- --run`
 
 Expected: FAIL because workflow views are absent.
 
-- [ ] **Step 3: Implement minimal pages and event timeline**
+- [x] **Step 3: Implement minimal pages and event timeline**
 
 Display structured plans, node status, tool name, redacted parameters, result summary, citations, approval state, and final report. Do not render hidden reasoning. Reconnect SSE with the last persisted sequence and fetch final task state after stream completion.
 
-- [ ] **Step 4: Run frontend tests and build**
+- [x] **Step 4: Run frontend tests and build**
 
 Run: `npm --prefix web test -- --run`
 
@@ -341,7 +341,7 @@ Run: `npm --prefix web run build`
 
 Expected: PASS without TypeScript errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web
