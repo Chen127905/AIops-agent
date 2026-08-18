@@ -212,7 +212,7 @@ git commit -m "feat: harden agent evidence and tool security"
 - Consumes: production workflow, scenario catalog, fixed ground truth.
 - Produces: stored runs and metrics for classification accuracy, root-cause accuracy, tool precision/recall, parameter correctness, citation correctness, end-to-end resolution, approval interception, leakage count, steps, Token cost, and P50/P95 latency.
 
-- [ ] **Step 1: Write failing metric tests**
+- [x] **Step 1: Write failing metric tests**
 
 ```java
 @Test
@@ -224,17 +224,17 @@ void computesToolPrecisionAndRecall() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=EvaluationRunnerTest test`
 
 Expected: FAIL because evaluation types are absent.
 
-- [ ] **Step 3: Implement deterministic and live evaluation modes**
+- [x] **Step 3: Implement deterministic and live evaluation modes**
 
 Create at least 30 cases across classification, RAG, tool use, end-to-end, approval, and attack groups. `MOCK` mode is deterministic and CI-safe. `LIVE` mode records provider, model, prompt version, knowledge version, start/end time, Token usage, raw structured outputs, scores, and failure category.
 
-- [ ] **Step 4: Run evaluation tests and commit**
+- [x] **Step 4: Run evaluation tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=EvaluationRunnerTest test`
 

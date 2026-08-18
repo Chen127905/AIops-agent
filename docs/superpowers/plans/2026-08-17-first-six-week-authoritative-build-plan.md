@@ -252,7 +252,7 @@ Execute Approval and Delivery Task 2 in full. Check cancellation before each nod
 
 Execute Approval and Delivery Task 3 in full. Treat retrieved documents as untrusted evidence, redact configured secret patterns before model/log boundaries, preserve Java allowlists, and audit every security-sensitive decision.
 
-- [ ] **Step 4: Build deterministic and live evaluation modes**
+- [x] **Step 4: Build deterministic and live evaluation modes**
 
 Execute Approval and Delivery Task 4 in full. Store at least 30 cases across classification, retrieval, tools, end-to-end resolution, approval, and attacks. Deterministic CI mode and live provider mode must call the same production workflow port.
 
