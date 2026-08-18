@@ -1,6 +1,7 @@
 package com.cc.opsagent.identity.security;
 
 import com.cc.opsagent.audit.AuditService;
+import com.cc.opsagent.observability.CorrelationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,6 +29,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            CorrelationFilter correlationFilter,
             AuditService audit) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -56,10 +58,14 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/actuator/health",
                                 "/error").permitAll()
+                        .requestMatchers(
+                                "/actuator/info",
+                                "/actuator/prometheus").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(
                         jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class);
+                        UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(correlationFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 }

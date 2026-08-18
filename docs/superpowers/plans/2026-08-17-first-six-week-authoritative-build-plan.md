@@ -256,13 +256,15 @@ Execute Approval and Delivery Task 3 in full. Treat retrieved documents as untru
 
 Execute Approval and Delivery Task 4 in full. Store at least 30 cases across classification, retrieval, tools, end-to-end resolution, approval, and attacks. Deterministic CI mode and live provider mode must call the same production workflow port.
 
-- [ ] **Step 5: Add low-cardinality metrics and correlation logging**
+- [x] **Step 5: Add low-cardinality metrics and correlation logging**
 
 Execute Approval and Delivery Task 5 in full. Tenant, ticket, task, prompt, and raw error text must never become metric tags. Maintain `trace_id`, `tenant_id`, `ticket_id`, `task_id`, and `step_id` through HTTP and executor boundaries and clear MDC in `finally` blocks.
 
-- [ ] **Step 6: Run the control-plane acceptance gate**
+- [x] **Step 6: Run the control-plane acceptance gate**
 
 Run focused approval, recovery, security, evaluation, and observability tests. Expected: exactly one concurrent approval wins, stale leases recover safely or become manual, injected instructions cannot elevate permission, mock evaluation is reproducible, and metrics avoid high-cardinality labels.
+
+Acceptance result on 2026-08-18: `mvn -f server/pom.xml clean verify` passed with 96 unit tests and 56 integration tests (152 total, zero failures).
 
 ### Task 5: Complete the Demonstration UI and Delivery Package
 

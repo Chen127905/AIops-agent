@@ -27,6 +27,8 @@ import com.cc.opsagent.model.ModelProvider;
 import com.cc.opsagent.model.ModelReply;
 import com.cc.opsagent.model.ModelRequest;
 import com.cc.opsagent.model.ModelUsage;
+import com.cc.opsagent.observability.CorrelationContext;
+import org.slf4j.MDC;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -48,6 +50,7 @@ class OpsAgentWorkflowTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+        MDC.clear();
     }
 
     @Test
@@ -163,6 +166,7 @@ class OpsAgentWorkflowTest {
 
     @Test
     void auditsEveryNodeModelAndToolCall() {
+        MDC.put(CorrelationContext.TRACE_ID, "workflow-trace-100");
         TenantPrincipal principal = new TenantPrincipal(
                 1, 7, "operator", Set.of("OPERATOR"));
         SecurityContextHolder.getContext().setAuthentication(
@@ -186,6 +190,15 @@ class OpsAgentWorkflowTest {
         assertThat(audit.models).hasSize(3);
         assertThat(audit.tools).containsExactly("getServiceHealth");
         assertThat(audit.tenants).isNotEmpty().containsOnly(1L);
+        assertThat(audit.correlations).isNotEmpty().allSatisfy(context -> {
+            assertThat(context.traceId()).isEqualTo("workflow-trace-100");
+            assertThat(context.tenantId()).isEqualTo("1");
+            assertThat(context.ticketId()).isEqualTo("88");
+            assertThat(context.taskId()).isEqualTo("100");
+            assertThat(context.stepId()).isNotBlank();
+        });
+        assertThat(MDC.get(CorrelationContext.TRACE_ID))
+                .isEqualTo("workflow-trace-100");
     }
 
     @Test
@@ -384,29 +397,51 @@ class OpsAgentWorkflowTest {
         private final List<String> models = new ArrayList<>();
         private final List<String> tools = new ArrayList<>();
         private final List<Long> tenants = new ArrayList<>();
+        private final List<CorrelationSnapshot> correlations = new ArrayList<>();
 
         @Override
         public void nodeStarted(NodeAudit audit) {
             started.add(audit.nodeName());
             tenants.add(TenantContext.requireTenantId());
+            captureCorrelation();
         }
 
         @Override
         public void nodeCompleted(NodeAudit audit) {
             completed.add(audit.nodeName());
             tenants.add(TenantContext.requireTenantId());
+            captureCorrelation();
         }
 
         @Override
         public void modelInvoked(ModelCallAudit audit) {
             models.add(audit.modelName());
             tenants.add(TenantContext.requireTenantId());
+            captureCorrelation();
         }
 
         @Override
         public void toolInvoked(ToolCallAudit audit) {
             tools.add(audit.toolName());
             tenants.add(TenantContext.requireTenantId());
+            captureCorrelation();
         }
+
+        private void captureCorrelation() {
+            correlations.add(new CorrelationSnapshot(
+                    MDC.get(CorrelationContext.TRACE_ID),
+                    MDC.get(CorrelationContext.TENANT_ID),
+                    MDC.get(CorrelationContext.TICKET_ID),
+                    MDC.get(CorrelationContext.TASK_ID),
+                    MDC.get(CorrelationContext.STEP_ID)));
+        }
+    }
+
+    private record CorrelationSnapshot(
+            String traceId,
+            String tenantId,
+            String ticketId,
+            String taskId,
+            String stepId) {
     }
 }

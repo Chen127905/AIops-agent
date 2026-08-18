@@ -6,6 +6,7 @@ import com.cc.opsagent.agent.application.AgentTaskService;
 import com.cc.opsagent.agent.application.ModelInvocationRecord;
 import com.cc.opsagent.agent.application.StepRecord;
 import com.cc.opsagent.agent.application.ToolInvocationRecord;
+import com.cc.opsagent.observability.AgentMetrics;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -16,12 +17,15 @@ public class PersistentAgentExecutionAudit implements AgentExecutionAudit {
 
     private final AgentTaskService taskService;
     private final AgentEventService eventService;
+    private final AgentMetrics metrics;
 
     public PersistentAgentExecutionAudit(
             AgentTaskService taskService,
-            AgentEventService eventService) {
+            AgentEventService eventService,
+            AgentMetrics metrics) {
         this.taskService = taskService;
         this.eventService = eventService;
+        this.metrics = metrics;
     }
 
     @Override
@@ -33,6 +37,15 @@ public class PersistentAgentExecutionAudit implements AgentExecutionAudit {
 
     @Override
     public void nodeCompleted(NodeAudit audit) {
+        java.time.Duration duration = java.time.Duration.ofMillis(audit.durationMs());
+        metrics.recordNode(audit.nodeName(), audit.status(), duration);
+        if ("retrieve".equals(audit.nodeName())) {
+            Object citations = audit.output().get("citations");
+            int count = citations instanceof java.util.Collection<?> values
+                    ? values.size() : 0;
+            metrics.recordRetrieval(
+                    "SUCCEEDED".equals(audit.status()), count, duration);
+        }
         taskService.appendStep(new StepRecord(
                 audit.taskId(), audit.sequence(), audit.nodeName(), audit.status(),
                 audit.input(), audit.output(), audit.errorSummary(), audit.durationMs()));
@@ -49,6 +62,10 @@ public class PersistentAgentExecutionAudit implements AgentExecutionAudit {
 
     @Override
     public void modelInvoked(ModelCallAudit audit) {
+        metrics.recordModelCall(
+                audit.provider(), java.time.Duration.ofMillis(audit.latencyMs()),
+                "SUCCEEDED".equals(audit.status()),
+                Math.addExact(audit.inputTokens(), audit.outputTokens()));
         taskService.appendModelInvocation(new ModelInvocationRecord(
                 audit.taskId(), null, audit.provider(), audit.modelName(),
                 audit.requestHash(), audit.status(), audit.inputTokens(),
@@ -57,6 +74,9 @@ public class PersistentAgentExecutionAudit implements AgentExecutionAudit {
 
     @Override
     public void toolInvoked(ToolCallAudit audit) {
+        metrics.recordToolCall(
+                audit.toolName(), audit.risk(), audit.status(),
+                java.time.Duration.ofMillis(audit.latencyMs()));
         taskService.appendToolInvocation(new ToolInvocationRecord(
                 audit.taskId(), null, audit.toolName(), audit.normalizedArguments(),
                 audit.risk(), audit.status(), null, audit.latencyMs(),

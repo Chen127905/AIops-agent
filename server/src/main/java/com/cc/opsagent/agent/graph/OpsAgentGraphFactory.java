@@ -13,6 +13,8 @@ import com.cc.opsagent.agent.graph.node.RetrieveNode;
 import com.cc.opsagent.agent.graph.node.SummarizeNode;
 import com.cc.opsagent.agent.graph.node.TriageNode;
 import com.cc.opsagent.agent.graph.node.VerifyNode;
+import com.cc.opsagent.observability.CorrelationContext;
+import org.slf4j.MDC;
 
 import java.util.Map;
 
@@ -114,29 +116,37 @@ public class OpsAgentGraphFactory {
             }
             if (!state.terminal() && state.shouldExecute(name)) {
                 int sequence = state.nextStepSequence();
-                Map<String, Object> input = state.auditSnapshot();
-                audit.nodeStarted(new AgentExecutionAudit.NodeAudit(
-                        state.command().taskId(), sequence, name, "STARTED",
-                        input, Map.of(), null, 0));
-                long started = System.nanoTime();
-                try {
-                    node.apply(state);
-                } catch (RuntimeException exception) {
-                    state.fail("agent node " + name + " failed: " + exception.getMessage());
+                try (CorrelationContext.Scope ignored = CorrelationContext.open(
+                        MDC.get(CorrelationContext.TRACE_ID),
+                        state.command().tenantId(), state.command().ticketId(),
+                        state.command().taskId(), sequence)) {
+                    Map<String, Object> input = state.auditSnapshot();
+                    audit.nodeStarted(new AgentExecutionAudit.NodeAudit(
+                            state.command().taskId(), sequence, name, "STARTED",
+                            input, Map.of(), null, 0));
+                    long started = System.nanoTime();
+                    try {
+                        node.apply(state);
+                    } catch (RuntimeException exception) {
+                        state.fail("agent node " + name + " failed: "
+                                + exception.getMessage());
+                    }
+                    if (!state.terminal()
+                            && cancellation.requested(state.command().taskId())) {
+                        state.cancel();
+                    }
+                    long durationMs = Math.max(
+                            0, (System.nanoTime() - started) / 1_000_000);
+                    String status = state.status()
+                            == com.cc.opsagent.agent.domain.AgentTaskStatus.FAILED
+                            || state.status()
+                            == com.cc.opsagent.agent.domain.AgentTaskStatus.TIMED_OUT
+                            ? "FAILED" : "SUCCEEDED";
+                    audit.nodeCompleted(new AgentExecutionAudit.NodeAudit(
+                            state.command().taskId(), sequence, name, status,
+                            input, state.checkpointSnapshot(),
+                            state.error(), durationMs));
                 }
-                if (!state.terminal()
-                        && cancellation.requested(state.command().taskId())) {
-                    state.cancel();
-                }
-                long durationMs = Math.max(
-                        0, (System.nanoTime() - started) / 1_000_000);
-                String status = state.status() == com.cc.opsagent.agent.domain.AgentTaskStatus.FAILED
-                        || state.status() == com.cc.opsagent.agent.domain.AgentTaskStatus.TIMED_OUT
-                        ? "FAILED" : "SUCCEEDED";
-                audit.nodeCompleted(new AgentExecutionAudit.NodeAudit(
-                        state.command().taskId(), sequence, name, status,
-                        input, state.checkpointSnapshot(),
-                        state.error(), durationMs));
             }
             return Map.of(STATE, state);
         }));

@@ -22,6 +22,7 @@ import com.cc.opsagent.ticket.application.TicketService;
 import com.cc.opsagent.approval.application.ApprovalRequestCreator;
 import com.cc.opsagent.agent.application.CancellationProbe;
 import com.cc.opsagent.security.SensitiveDataRedactor;
+import com.cc.opsagent.observability.AgentMetrics;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -65,9 +66,10 @@ public class AgentWorkflowConfig {
             @Value("${app.agent.worker-id:local-agent-worker}") String workerId,
             @Value("${app.agent.lease:PT4M}") java.time.Duration lease,
             ApprovalRequestCreator approvals,
-            @Value("${app.agent.approval-ttl:PT30M}") java.time.Duration approvalTtl) {
+            @Value("${app.agent.approval-ttl:PT30M}") java.time.Duration approvalTtl,
+            AgentMetrics metrics) {
         return new OpsAgentWorkflow(
                 tasks, events, tickets, engine, provider, workerId, lease,
-                approvals, approvalTtl);
+                approvals, approvalTtl, metrics);
     }
 }

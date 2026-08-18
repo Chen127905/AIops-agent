@@ -257,7 +257,7 @@ git commit -m "feat: add repeatable agent evaluation"
 - Consumes: task, node, model, tool, retrieval, approval, and executor events.
 - Produces: Micrometer counters/timers/gauges and MDC keys `trace_id`, `tenant_id`, `ticket_id`, `task_id`, `step_id`.
 
-- [ ] **Step 1: Write a failing metric test**
+- [x] **Step 1: Write a failing metric test**
 
 ```java
 @Test
@@ -269,17 +269,17 @@ void recordsModelLatencyAndFailureByProvider() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=AgentMetricsTest test`
 
 Expected: FAIL because metrics are absent.
 
-- [ ] **Step 3: Implement low-cardinality metrics and MDC lifecycle**
+- [x] **Step 3: Implement low-cardinality metrics and MDC lifecycle**
 
 Never use tenant, ticket, task, prompt, or error message as metric tags. Expose `/actuator/health`, `/actuator/info`, and authenticated `/actuator/prometheus`. Clear MDC in `finally` blocks and executor task decorators.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=AgentMetricsTest test`
 

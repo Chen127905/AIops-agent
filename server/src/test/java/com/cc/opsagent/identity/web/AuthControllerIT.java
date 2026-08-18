@@ -1,6 +1,7 @@
 package com.cc.opsagent.identity.web;
 
 import com.cc.opsagent.identity.security.TenantContext;
+import com.cc.opsagent.observability.AgentMetrics;
 import com.cc.opsagent.ticket.application.TicketRepository;
 import com.cc.opsagent.ticket.domain.Ticket;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,9 @@ class AuthControllerIT {
 
     @Autowired
     ApplicationContext applicationContext;
+
+    @Autowired
+    AgentMetrics agentMetrics;
 
     @Value("${local.server.port}")
     int port;
@@ -162,6 +166,53 @@ class AuthControllerIT {
     }
 
     @Test
+    void exposesCorrelatedHealthButRestrictsPrometheusMetricsToAdmins() {
+        RestClient client = RestClient.create("http://localhost:" + port);
+
+        HttpProbe health = client.get()
+                .uri("/actuator/health")
+                .header("X-Trace-Id", "health-trace-123")
+                .exchange((request, response) -> new HttpProbe(
+                        response.getStatusCode().value(),
+                        response.getHeaders().getFirst("X-Trace-Id"), null));
+        assertThat(health.status()).isEqualTo(200);
+        assertThat(health.traceId()).isEqualTo("health-trace-123");
+
+        HttpStatusCode anonymousMetrics = client.get()
+                .uri("/actuator/prometheus")
+                .exchange((request, response) -> response.getStatusCode());
+        assertThat(anonymousMetrics.value()).isEqualTo(401);
+
+        long operatorTenant = insertTenant("metrics-operator-tenant");
+        insertUser(operatorTenant, "metrics-operator", "correct-password", "OPERATOR");
+        String operatorToken = loginToken(
+                client, "metrics-operator-tenant", "metrics-operator", "correct-password");
+        HttpStatusCode operatorMetrics = client.get()
+                .uri("/actuator/prometheus")
+                .header("Authorization", "Bearer " + operatorToken)
+                .exchange((request, response) -> response.getStatusCode());
+        assertThat(operatorMetrics.value()).isEqualTo(403);
+
+        long adminTenant = insertTenant("metrics-admin-tenant");
+        insertUser(adminTenant, "metrics-admin", "correct-password", "ADMIN");
+        String adminToken = loginToken(
+                client, "metrics-admin-tenant", "metrics-admin", "correct-password");
+        agentMetrics.recordExecutorRejection();
+        HttpProbe metrics = client.get()
+                .uri("/actuator/prometheus")
+                .header("Authorization", "Bearer " + adminToken)
+                .header("X-Trace-Id", "metrics-trace-456")
+                .exchange((request, response) -> new HttpProbe(
+                        response.getStatusCode().value(),
+                        response.getHeaders().getFirst("X-Trace-Id"),
+                        new String(response.getBody().readAllBytes(),
+                                java.nio.charset.StandardCharsets.UTF_8)));
+        assertThat(metrics.status()).isEqualTo(200);
+        assertThat(metrics.traceId()).isEqualTo("metrics-trace-456");
+        assertThat(metrics.body()).contains("ops_agent_executor_rejections_total");
+    }
+
+    @Test
     void doesNotExposeAnotherTenantsTicket() {
         long requestingTenantId = insertTenant("requesting-tenant");
         insertUser(
@@ -234,6 +285,9 @@ class AuthControllerIT {
                 SELECT id FROM ticket
                 WHERE tenant_id = ? AND title = ?
                 """, Long.class, tenantId, title);
+    }
+
+    private record HttpProbe(int status, String traceId, String body) {
     }
 
     @TestConfiguration(proxyBeanMethods = false)

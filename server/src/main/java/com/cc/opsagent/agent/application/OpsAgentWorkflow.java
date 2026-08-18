@@ -6,6 +6,7 @@ import com.cc.opsagent.model.ModelProvider;
 import com.cc.opsagent.approval.application.ApprovalRequestCreator;
 import com.cc.opsagent.ticket.application.TicketService;
 import com.cc.opsagent.ticket.web.TicketResponse;
+import com.cc.opsagent.observability.AgentMetrics;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -25,6 +26,7 @@ public class OpsAgentWorkflow {
     private final Duration lease;
     private final ApprovalRequestCreator approvals;
     private final Duration approvalTtl;
+    private final AgentMetrics metrics;
 
     public OpsAgentWorkflow(
             AgentTaskService taskService,
@@ -35,7 +37,8 @@ public class OpsAgentWorkflow {
             String workerId,
             Duration lease) {
         this(taskService, eventService, ticketService, engine, provider,
-                workerId, lease, ApprovalRequestCreator.noop(), Duration.ofMinutes(30));
+                workerId, lease, ApprovalRequestCreator.noop(), Duration.ofMinutes(30),
+                AgentMetrics.noop());
     }
 
     public OpsAgentWorkflow(
@@ -48,6 +51,21 @@ public class OpsAgentWorkflow {
             Duration lease,
             ApprovalRequestCreator approvals,
             Duration approvalTtl) {
+        this(taskService, eventService, ticketService, engine, provider,
+                workerId, lease, approvals, approvalTtl, AgentMetrics.noop());
+    }
+
+    public OpsAgentWorkflow(
+            AgentTaskService taskService,
+            AgentEventService eventService,
+            TicketService ticketService,
+            AgentWorkflowEngine engine,
+            ModelProvider provider,
+            String workerId,
+            Duration lease,
+            ApprovalRequestCreator approvals,
+            Duration approvalTtl,
+            AgentMetrics metrics) {
         this.taskService = taskService;
         this.eventService = eventService;
         this.ticketService = ticketService;
@@ -69,6 +87,7 @@ public class OpsAgentWorkflow {
         this.lease = lease;
         this.approvals = approvals;
         this.approvalTtl = approvalTtl;
+        this.metrics = metrics;
     }
 
     public TaskOutcome run(long taskId) {
@@ -100,6 +119,7 @@ public class OpsAgentWorkflow {
             RecoveryCheckpoint checkpoint,
             boolean recovered) {
         long taskId = task.id();
+        long executionStarted = System.nanoTime();
         TaskOutcome outcome;
         try {
             eventService.append(
@@ -145,6 +165,8 @@ public class OpsAgentWorkflow {
                 "status", outcome.status().name(),
                 "toolCount", outcome.toolNames().size(),
                 "citationCount", outcome.citations().size()));
+        metrics.recordTask(outcome.status(), Duration.ofNanos(
+                Math.max(0, System.nanoTime() - executionStarted)));
         return outcome;
     }
 

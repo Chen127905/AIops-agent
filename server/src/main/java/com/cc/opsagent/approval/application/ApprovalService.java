@@ -10,6 +10,7 @@ import com.cc.opsagent.approval.domain.ApprovalStatus;
 import com.cc.opsagent.approval.infrastructure.ApprovalRepository;
 import com.cc.opsagent.identity.security.TenantContext;
 import com.cc.opsagent.identity.security.TenantPrincipal;
+import com.cc.opsagent.observability.AgentMetrics;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -32,18 +33,21 @@ public class ApprovalService implements ApprovalRequestCreator {
     private final AgentEventService eventService;
     private final ApprovalResumeHandler resumeHandler;
     private final SecurityAuditPort audit;
+    private final AgentMetrics metrics;
 
     public ApprovalService(
             ApprovalRepository repository,
             AgentTaskService taskService,
             AgentEventService eventService,
             ApprovalResumeHandler resumeHandler,
-            SecurityAuditPort audit) {
+            SecurityAuditPort audit,
+            AgentMetrics metrics) {
         this.repository = repository;
         this.taskService = taskService;
         this.eventService = eventService;
         this.resumeHandler = resumeHandler;
         this.audit = audit;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -78,6 +82,7 @@ public class ApprovalService implements ApprovalRequestCreator {
                 "approvalId", approvalId,
                 "tool", toolName));
         record("APPROVAL_REQUESTED", "REQUESTED", approvalId, taskId, toolName);
+        metrics.recordApproval("REQUESTED");
         return require(tenantId, approvalId);
     }
 
@@ -98,6 +103,7 @@ public class ApprovalService implements ApprovalRequestCreator {
                 "decidedBy", principal.userId()));
         record("APPROVAL_APPROVED", "SUCCEEDED", approvalId,
                 approval.taskId(), approval.toolName());
+        metrics.recordApproval("APPROVED");
         dispatchAfterCommit(command);
         return command;
     }
@@ -123,6 +129,7 @@ public class ApprovalService implements ApprovalRequestCreator {
                 "decidedBy", principal.userId()));
         record("APPROVAL_REJECTED", "REJECTED", approvalId,
                 approval.taskId(), approval.toolName());
+        metrics.recordApproval("REJECTED");
         return approval;
     }
 
@@ -142,11 +149,13 @@ public class ApprovalService implements ApprovalRequestCreator {
         repository.expirePending(tenantId, approvalId, now);
         ApprovalRequest existing = repository.find(tenantId, approvalId);
         if (existing == null) {
+            metrics.recordApproval("FAILED");
             recordDecisionRejection(tenantId, approvalId, "NOT_FOUND");
             return new ApprovalDecisionException("approval was not found");
         }
         recordDecisionRejection(
                 tenantId, approvalId, "STATUS_" + existing.status().name());
+        metrics.recordApproval("FAILED");
         return new ApprovalDecisionException(
                 "approval cannot be decided from status " + existing.status());
     }
