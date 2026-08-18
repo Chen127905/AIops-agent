@@ -4,22 +4,39 @@ import com.cc.opsagent.agent.application.AgentExecutionAudit;
 import com.cc.opsagent.agent.application.CancellationProbe;
 import com.cc.opsagent.agent.graph.OpsAgentState;
 import com.cc.opsagent.model.ModelGateway;
+import com.cc.opsagent.security.SensitiveDataRedactor;
+import com.cc.opsagent.security.UntrustedContentPolicy;
 
 import java.util.Map;
 
 public class DecisionNode extends StructuredModelNode implements OpsAgentNode {
 
-    public DecisionNode(ModelGateway model) { super(model); }
+    private final UntrustedContentPolicy untrustedContent;
+
+    public DecisionNode(ModelGateway model) {
+        this(model, AgentExecutionAudit.noop(), CancellationProbe.never(),
+                new SensitiveDataRedactor());
+    }
 
     public DecisionNode(ModelGateway model, AgentExecutionAudit audit) {
-        super(model, audit);
+        this(model, audit, CancellationProbe.never(),
+                new SensitiveDataRedactor());
     }
 
     public DecisionNode(
             ModelGateway model,
             AgentExecutionAudit audit,
             CancellationProbe cancellation) {
-        super(model, audit, cancellation);
+        this(model, audit, cancellation, new SensitiveDataRedactor());
+    }
+
+    public DecisionNode(
+            ModelGateway model,
+            AgentExecutionAudit audit,
+            CancellationProbe cancellation,
+            SensitiveDataRedactor redactor) {
+        super(model, audit, cancellation, redactor);
+        this.untrustedContent = new UntrustedContentPolicy(redactor);
     }
 
     @Override
@@ -29,8 +46,13 @@ public class DecisionNode extends StructuredModelNode implements OpsAgentNode {
             Decision decision = callStructured(state, """
                     Decide the root cause and proposed action from validated observations.
                     Return JSON with rootCause, proposedAction, actionArguments and confidence.
-                    Ticket category: %s; observations: %s
-                    """.formatted(state.category(), state.observations()), Decision.class);
+                    Ticket category: %s
+                    %s
+                    """.formatted(
+                            state.category(),
+                            untrustedContent.diagnosticEnvelope(
+                                    state.evidence(), state.observations())),
+                    Decision.class);
             if (decision.rootCause() == null || decision.rootCause().isBlank()
                     || decision.proposedAction() == null || decision.proposedAction().isBlank()
                     || decision.confidence() < 0 || decision.confidence() > 1) {

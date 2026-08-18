@@ -1,5 +1,7 @@
 package com.cc.opsagent.ticket.application;
 
+import com.cc.opsagent.audit.SecurityAuditPort;
+import com.cc.opsagent.audit.SecurityAuditPort.SecurityAuditEvent;
 import com.cc.opsagent.identity.security.TenantContext;
 import com.cc.opsagent.ticket.domain.Ticket;
 import com.cc.opsagent.ticket.domain.TicketSeverity;
@@ -9,18 +11,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class TicketService {
 
     private final TicketRepository ticketRepository;
     private final TicketStateMachine stateMachine;
+    private final SecurityAuditPort audit;
 
     public TicketService(
             TicketRepository ticketRepository,
-            TicketStateMachine stateMachine) {
+            TicketStateMachine stateMachine,
+            SecurityAuditPort audit) {
         this.ticketRepository = ticketRepository;
         this.stateMachine = stateMachine;
+        this.audit = audit;
     }
 
     @Transactional
@@ -87,6 +93,11 @@ public class TicketService {
     private Ticket requireTicket(long tenantId, long id) {
         Ticket ticket = ticketRepository.findByTenantIdAndId(tenantId, id);
         if (ticket == null) {
+            audit.record(new SecurityAuditEvent(
+                    tenantId, TenantContext.requireUserId(),
+                    "TENANT_RESOURCE_ACCESS_REJECTED", "REJECTED",
+                    "TICKET", Long.toString(id),
+                    Map.of("reason", "NOT_OWNED_OR_NOT_FOUND")));
             throw new TicketNotFoundException(id);
         }
         return ticket;

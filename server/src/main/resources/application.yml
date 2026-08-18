@@ -18,6 +18,8 @@ app:
       password: "${POSTGRES_PASSWORD:change-me-postgres}"
       driver-class-name: org.postgresql.Driver
   security:
+    redaction:
+      additional-patterns: "${SECURITY_REDACTION_ADDITIONAL_PATTERNS:}"
     jwt:
       issuer: ops-agent-platform
       secret: "${JWT_SECRET:local-development-secret-change-before-production}"

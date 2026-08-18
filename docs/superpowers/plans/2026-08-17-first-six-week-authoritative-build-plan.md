@@ -248,7 +248,7 @@ Execute Approval and Delivery Task 1 in full. Atomically consume pending approva
 
 Execute Approval and Delivery Task 2 in full. Check cancellation before each node and after each external call. Resume only from safe checkpoints; ambiguous write outcomes enter `MANUAL_REQUIRED`.
 
-- [ ] **Step 3: Add audit and prompt-injection defenses**
+- [x] **Step 3: Add audit and prompt-injection defenses**
 
 Execute Approval and Delivery Task 3 in full. Treat retrieved documents as untrusted evidence, redact configured secret patterns before model/log boundaries, preserve Java allowlists, and audit every security-sensitive decision.
 

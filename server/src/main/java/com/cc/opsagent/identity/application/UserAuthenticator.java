@@ -1,5 +1,7 @@
 package com.cc.opsagent.identity.application;
 
+import com.cc.opsagent.audit.SecurityAuditPort;
+import com.cc.opsagent.audit.SecurityAuditPort.SecurityAuditEvent;
 import com.cc.opsagent.identity.domain.UserCredential;
 import com.cc.opsagent.identity.security.TenantPrincipal;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -7,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Set;
+import java.util.Map;
 
 @Service
 public class UserAuthenticator {
@@ -15,12 +18,15 @@ public class UserAuthenticator {
 
     private final UserCredentialRepository repository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityAuditPort audit;
 
     public UserAuthenticator(
             UserCredentialRepository repository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            SecurityAuditPort audit) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
+        this.audit = audit;
     }
 
     public TenantPrincipal authenticate(
@@ -29,16 +35,28 @@ public class UserAuthenticator {
             String rawPassword) {
         UserCredential credential = repository
                 .findEnabledByTenantCodeAndUsername(tenantCode, username)
-                .orElseThrow(() -> new BadCredentialsException(BAD_CREDENTIALS));
+                .orElseThrow(this::badCredentials);
 
         if (!passwordEncoder.matches(rawPassword, credential.passwordHash())) {
-            throw new BadCredentialsException(BAD_CREDENTIALS);
+            throw badCredentials();
         }
 
-        return new TenantPrincipal(
+        TenantPrincipal principal = new TenantPrincipal(
                 credential.tenantId(),
                 credential.userId(),
                 credential.username(),
                 Set.of(credential.role()));
+        audit.record(new SecurityAuditEvent(
+                principal.tenantId(), principal.userId(),
+                "AUTHENTICATION_SUCCEEDED", "SUCCEEDED",
+                "LOGIN", null, Map.of()));
+        return principal;
+    }
+
+    private BadCredentialsException badCredentials() {
+        audit.record(new SecurityAuditEvent(
+                null, null, "AUTHENTICATION_FAILED", "REJECTED",
+                "LOGIN", null, Map.of("reason", "INVALID_CREDENTIALS")));
+        return new BadCredentialsException(BAD_CREDENTIALS);
     }
 }

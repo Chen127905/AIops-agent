@@ -1,5 +1,8 @@
 package com.cc.opsagent.tool.application;
 
+import com.cc.opsagent.audit.SecurityAuditPort;
+import com.cc.opsagent.audit.SecurityAuditPort.SecurityAuditEvent;
+import com.cc.opsagent.identity.security.TenantContext;
 import com.cc.opsagent.simulator.application.OpsContext;
 import com.cc.opsagent.simulator.application.OpsDataProvider;
 import com.cc.opsagent.simulator.application.OpsDataProvider.ChangeConfig;
@@ -43,14 +46,19 @@ public class OpsToolFacade implements AutoCloseable {
     private final OpsDataProvider provider;
     private final ExecutorService executor;
     private final Duration executionTimeout;
+    private final SecurityAuditPort audit;
 
     @Autowired
-    public OpsToolFacade(ToolPolicyService policy, OpsDataProvider provider) {
+    public OpsToolFacade(
+            ToolPolicyService policy,
+            OpsDataProvider provider,
+            SecurityAuditPort audit) {
         this(
                 policy,
                 provider,
                 Executors.newVirtualThreadPerTaskExecutor(),
-                Duration.ofSeconds(5));
+                Duration.ofSeconds(5),
+                audit);
     }
 
     OpsToolFacade(
@@ -58,10 +66,20 @@ public class OpsToolFacade implements AutoCloseable {
             OpsDataProvider provider,
             ExecutorService executor,
             Duration executionTimeout) {
+        this(policy, provider, executor, executionTimeout, SecurityAuditPort.noop());
+    }
+
+    OpsToolFacade(
+            ToolPolicyService policy,
+            OpsDataProvider provider,
+            ExecutorService executor,
+            Duration executionTimeout,
+            SecurityAuditPort audit) {
         this.policy = policy;
         this.provider = provider;
         this.executor = executor;
         this.executionTimeout = executionTimeout;
+        this.audit = audit;
     }
 
     public ToolResult<HealthSnapshot> getServiceHealth(
@@ -171,16 +189,16 @@ public class OpsToolFacade implements AutoCloseable {
             Callable<BoundedResult<T>> operation) {
         ToolDecision decision = policy.evaluate(request);
         if (!decision.allowed()) {
-            return ToolResult.withoutData(
+            return audited(request, ToolResult.withoutData(
                     ToolExecutionStatus.REJECTED,
                     decision.reason(),
-                    decision.risk());
+                    decision.risk()));
         }
         if (decision.requiresApproval() && !decision.approvalSatisfied()) {
-            return ToolResult.withoutData(
+            return audited(request, ToolResult.withoutData(
                     ToolExecutionStatus.APPROVAL_REQUIRED,
                     decision.reason(),
-                    decision.risk());
+                    decision.risk()));
         }
         Future<BoundedResult<T>> future = executor.submit(operation);
         try {
@@ -190,28 +208,48 @@ public class OpsToolFacade implements AutoCloseable {
                     : policyTimeout;
             BoundedResult<T> bounded = future.get(
                     timeout.toNanos(), TimeUnit.NANOSECONDS);
-            return ToolResult.success(
-                    bounded.data(), decision.risk(), bounded.truncated());
+            return audited(request, ToolResult.success(
+                    bounded.data(), decision.risk(), bounded.truncated()));
         } catch (TimeoutException exception) {
             future.cancel(true);
-            return ToolResult.withoutData(
+            return audited(request, ToolResult.withoutData(
                     ToolExecutionStatus.TIMEOUT,
                     "Tool exceeded its execution timeout",
-                    decision.risk());
+                    decision.risk()));
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             future.cancel(true);
-            return ToolResult.withoutData(
+            return audited(request, ToolResult.withoutData(
                     ToolExecutionStatus.FAILED,
                     "Tool execution was interrupted",
-                    decision.risk());
+                    decision.risk()));
         } catch (ExecutionException exception) {
             Throwable cause = exception.getCause();
-            return ToolResult.withoutData(
+            return audited(request, ToolResult.withoutData(
                     ToolExecutionStatus.FAILED,
                     cause == null ? "Tool execution failed" : cause.getMessage(),
-                    decision.risk());
+                    decision.risk()));
         }
+    }
+
+    private <T> ToolResult<T> audited(
+            ToolInvocationRequest request,
+            ToolResult<T> result) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("taskId", request.taskId());
+        details.put("status", result.status().name());
+        if (result.message() != null) details.put("message", result.message());
+        audit.record(new SecurityAuditEvent(
+                TenantContext.requireTenantId(), TenantContext.requireUserId(),
+                "TOOL_EXECUTION",
+                switch (result.status()) {
+                    case SUCCESS -> "SUCCEEDED";
+                    case APPROVAL_REQUIRED -> "REQUESTED";
+                    case REJECTED -> "REJECTED";
+                    default -> "FAILED";
+                },
+                "TOOL", request.toolName(), details));
+        return result;
     }
 
     private BoundedResult<List<MetricSeries>> boundMetrics(

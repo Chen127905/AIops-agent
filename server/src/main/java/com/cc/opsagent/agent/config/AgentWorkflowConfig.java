@@ -21,6 +21,7 @@ import com.cc.opsagent.model.ModelProvider;
 import com.cc.opsagent.ticket.application.TicketService;
 import com.cc.opsagent.approval.application.ApprovalRequestCreator;
 import com.cc.opsagent.agent.application.CancellationProbe;
+import com.cc.opsagent.security.SensitiveDataRedactor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -39,13 +40,14 @@ public class AgentWorkflowConfig {
             KnowledgeRetriever knowledge,
             DiagnosticToolGateway tools,
             AgentExecutionAudit audit,
-            CancellationProbe cancellation) {
+            CancellationProbe cancellation,
+            SensitiveDataRedactor redactor) {
         OpsAgentGraphFactory factory = new OpsAgentGraphFactory(
-                new TriageNode(model, audit, cancellation),
+                new TriageNode(model, audit, cancellation, redactor),
                 new RetrieveNode(knowledge, cancellation),
-                new PlanNode(model, audit, cancellation),
+                new PlanNode(model, audit, cancellation, redactor),
                 new DiagnoseNode(tools, audit, cancellation),
-                new DecisionNode(model, audit, cancellation),
+                new DecisionNode(model, audit, cancellation, redactor),
                 new VerifyNode(),
                 new SummarizeNode(),
                 audit,

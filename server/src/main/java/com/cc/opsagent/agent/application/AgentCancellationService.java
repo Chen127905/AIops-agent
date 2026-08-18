@@ -1,5 +1,7 @@
 package com.cc.opsagent.agent.application;
 
+import com.cc.opsagent.audit.SecurityAuditPort;
+import com.cc.opsagent.audit.SecurityAuditPort.SecurityAuditEvent;
 import com.cc.opsagent.agent.domain.AgentTask;
 import com.cc.opsagent.agent.domain.AgentTaskStatus;
 import com.cc.opsagent.approval.infrastructure.ApprovalRepository;
@@ -15,14 +17,17 @@ public class AgentCancellationService implements CancellationProbe {
     private final AgentTaskService tasks;
     private final AgentEventService events;
     private final ApprovalRepository approvals;
+    private final SecurityAuditPort audit;
 
     public AgentCancellationService(
             AgentTaskService tasks,
             AgentEventService events,
-            ApprovalRepository approvals) {
+            ApprovalRepository approvals,
+            SecurityAuditPort audit) {
         this.tasks = tasks;
         this.events = events;
         this.approvals = approvals;
+        this.audit = audit;
     }
 
     @Transactional
@@ -36,6 +41,10 @@ public class AgentCancellationService implements CancellationProbe {
         }
         events.append(taskId, "TASK_CANCEL_REQUESTED", Map.of(
                 "status", task.status().name()));
+        audit.record(new SecurityAuditEvent(
+                TenantContext.requireTenantId(), TenantContext.requireUserId(),
+                "TASK_CANCEL_REQUESTED", "REQUESTED", "AGENT_TASK",
+                Long.toString(taskId), Map.of("status", task.status().name())));
         if (task.status() == AgentTaskStatus.QUEUED
                 || task.status() == AgentTaskStatus.WAITING_APPROVAL) {
             if (task.status() == AgentTaskStatus.WAITING_APPROVAL) {

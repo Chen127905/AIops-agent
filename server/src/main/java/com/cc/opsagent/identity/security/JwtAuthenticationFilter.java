@@ -1,5 +1,6 @@
 package com.cc.opsagent.identity.security;
 
+import com.cc.opsagent.audit.AuditService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -21,9 +23,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
+    private final AuditService audit;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, AuditService audit) {
         this.jwtService = jwtService;
+        this.audit = audit;
     }
 
     @Override
@@ -43,6 +47,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authorization.substring(BEARER_PREFIX.length()));
         } catch (JwtException | IllegalArgumentException exception) {
             SecurityContextHolder.clearContext();
+            audit.recordAuthenticated(
+                    "AUTHENTICATION_FAILED", "REJECTED",
+                    "HTTP_REQUEST", request.getRequestURI(),
+                    Map.of("reason", "INVALID_BEARER_TOKEN"));
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }

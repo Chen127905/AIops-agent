@@ -5,6 +5,7 @@ import com.cc.opsagent.model.ModelProvider;
 import com.cc.opsagent.model.SpringAiModelGateway;
 import com.cc.opsagent.knowledge.application.EmbeddingGateway;
 import com.cc.opsagent.knowledge.infrastructure.SpringAiEmbeddingGateway;
+import com.cc.opsagent.security.SensitiveDataRedactor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiChatModel;
@@ -95,7 +96,8 @@ public class AiModelConfig {
 
     @Bean
     public EmbeddingGateway embeddingGateway(
-            @Qualifier("qwenEmbeddingModel") ObjectProvider<EmbeddingModel> qwen) {
+            @Qualifier("qwenEmbeddingModel") ObjectProvider<EmbeddingModel> qwen,
+            ObjectProvider<SensitiveDataRedactor> redactors) {
         EmbeddingModel model = qwen.getIfAvailable();
         if (model == null) {
             return texts -> {
@@ -103,7 +105,8 @@ public class AiModelConfig {
                         "Qwen embedding is unavailable because no API key is configured");
             };
         }
-        return new SpringAiEmbeddingGateway(model);
+        return new SpringAiEmbeddingGateway(
+                model, redactors.getIfAvailable(SensitiveDataRedactor::new));
     }
 
     static final class QwenApiKeyConfigured implements Condition {

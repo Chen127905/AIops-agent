@@ -1,5 +1,7 @@
 package com.cc.opsagent.approval.application;
 
+import com.cc.opsagent.audit.SecurityAuditPort;
+import com.cc.opsagent.audit.SecurityAuditPort.SecurityAuditEvent;
 import com.cc.opsagent.agent.application.AgentEventService;
 import com.cc.opsagent.agent.application.AgentTaskService;
 import com.cc.opsagent.agent.domain.AgentTaskStatus;
@@ -29,16 +31,19 @@ public class ApprovalService implements ApprovalRequestCreator {
     private final AgentTaskService taskService;
     private final AgentEventService eventService;
     private final ApprovalResumeHandler resumeHandler;
+    private final SecurityAuditPort audit;
 
     public ApprovalService(
             ApprovalRepository repository,
             AgentTaskService taskService,
             AgentEventService eventService,
-            ApprovalResumeHandler resumeHandler) {
+            ApprovalResumeHandler resumeHandler,
+            SecurityAuditPort audit) {
         this.repository = repository;
         this.taskService = taskService;
         this.eventService = eventService;
         this.resumeHandler = resumeHandler;
+        this.audit = audit;
     }
 
     @Transactional
@@ -72,6 +77,7 @@ public class ApprovalService implements ApprovalRequestCreator {
         eventService.append(taskId, "APPROVAL_REQUESTED", Map.of(
                 "approvalId", approvalId,
                 "tool", toolName));
+        record("APPROVAL_REQUESTED", "REQUESTED", approvalId, taskId, toolName);
         return require(tenantId, approvalId);
     }
 
@@ -90,6 +96,8 @@ public class ApprovalService implements ApprovalRequestCreator {
         eventService.append(approval.taskId(), "APPROVAL_APPROVED", Map.of(
                 "approvalId", approvalId,
                 "decidedBy", principal.userId()));
+        record("APPROVAL_APPROVED", "SUCCEEDED", approvalId,
+                approval.taskId(), approval.toolName());
         dispatchAfterCommit(command);
         return command;
     }
@@ -113,6 +121,8 @@ public class ApprovalService implements ApprovalRequestCreator {
         eventService.append(approval.taskId(), "APPROVAL_REJECTED", Map.of(
                 "approvalId", approvalId,
                 "decidedBy", principal.userId()));
+        record("APPROVAL_REJECTED", "REJECTED", approvalId,
+                approval.taskId(), approval.toolName());
         return approval;
     }
 
@@ -132,8 +142,11 @@ public class ApprovalService implements ApprovalRequestCreator {
         repository.expirePending(tenantId, approvalId, now);
         ApprovalRequest existing = repository.find(tenantId, approvalId);
         if (existing == null) {
+            recordDecisionRejection(tenantId, approvalId, "NOT_FOUND");
             return new ApprovalDecisionException("approval was not found");
         }
+        recordDecisionRejection(
+                tenantId, approvalId, "STATUS_" + existing.status().name());
         return new ApprovalDecisionException(
                 "approval cannot be decided from status " + existing.status());
     }
@@ -150,6 +163,10 @@ public class ApprovalService implements ApprovalRequestCreator {
         TenantPrincipal principal = TenantContext.requirePrincipal();
         if (!principal.roles().contains("ADMIN")
                 && !principal.roles().contains("APPROVER")) {
+            audit.record(new SecurityAuditEvent(
+                    principal.tenantId(), principal.userId(),
+                    "APPROVAL_AUTHORIZATION_REJECTED", "REJECTED",
+                    "APPROVAL", null, Map.of("reason", "INSUFFICIENT_ROLE")));
             throw new org.springframework.security.access.AccessDeniedException(
                     "approval requires ADMIN or APPROVER role");
         }
@@ -181,5 +198,28 @@ public class ApprovalService implements ApprovalRequestCreator {
         if (comment == null || comment.isBlank()) return null;
         String value = comment.trim();
         return value.length() <= 512 ? value : value.substring(0, 512);
+    }
+
+    private void record(
+            String eventType,
+            String outcome,
+            long approvalId,
+            long taskId,
+            String toolName) {
+        audit.record(new SecurityAuditEvent(
+                TenantContext.requireTenantId(), TenantContext.requireUserId(),
+                eventType, outcome, "APPROVAL", Long.toString(approvalId),
+                Map.of("taskId", taskId, "tool", toolName)));
+    }
+
+    private void recordDecisionRejection(
+            long tenantId,
+            long approvalId,
+            String reason) {
+        audit.record(new SecurityAuditEvent(
+                tenantId, TenantContext.requireUserId(),
+                "APPROVAL_DECISION_REJECTED", "REJECTED",
+                "APPROVAL", Long.toString(approvalId),
+                Map.of("reason", reason)));
     }
 }

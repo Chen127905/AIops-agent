@@ -6,6 +6,7 @@ import com.cc.opsagent.agent.graph.OpsAgentState;
 import com.cc.opsagent.model.ModelGateway;
 import com.cc.opsagent.model.ModelReply;
 import com.cc.opsagent.model.ModelRequest;
+import com.cc.opsagent.security.SensitiveDataRedactor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -20,23 +21,35 @@ abstract class StructuredModelNode {
     private final ModelGateway model;
     private final AgentExecutionAudit audit;
     private final CancellationProbe cancellation;
+    private final SensitiveDataRedactor redactor;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     StructuredModelNode(ModelGateway model) {
-        this(model, AgentExecutionAudit.noop(), CancellationProbe.never());
+        this(model, AgentExecutionAudit.noop(), CancellationProbe.never(),
+                new SensitiveDataRedactor());
     }
 
     StructuredModelNode(ModelGateway model, AgentExecutionAudit audit) {
-        this(model, audit, CancellationProbe.never());
+        this(model, audit, CancellationProbe.never(),
+                new SensitiveDataRedactor());
     }
 
     StructuredModelNode(
             ModelGateway model,
             AgentExecutionAudit audit,
             CancellationProbe cancellation) {
+        this(model, audit, cancellation, new SensitiveDataRedactor());
+    }
+
+    StructuredModelNode(
+            ModelGateway model,
+            AgentExecutionAudit audit,
+            CancellationProbe cancellation,
+            SensitiveDataRedactor redactor) {
         this.model = model;
         this.audit = audit;
         this.cancellation = cancellation;
+        this.redactor = redactor;
     }
 
     protected <T> T callStructured(
@@ -63,20 +76,22 @@ abstract class StructuredModelNode {
     }
 
     private ModelReply call(OpsAgentState state, String prompt) {
+        String safePrompt = redactor.redact(prompt);
         long started = System.nanoTime();
         ModelReply reply;
         try {
             reply = model.call(
                     state.command().provider(),
-                    new ModelRequest(prompt, Map.of("taskId", state.command().taskId())));
+                    new ModelRequest(
+                            safePrompt, Map.of("taskId", state.command().taskId())));
             if (reply == null || reply.content() == null || reply.content().isBlank()) {
                 throw new IllegalStateException("model returned an empty response");
             }
         } catch (RuntimeException exception) {
-            record(state, prompt, null, "FAILED", exception.getMessage(), started);
+            record(state, safePrompt, null, "FAILED", exception.getMessage(), started);
             throw exception;
         }
-        record(state, prompt, reply, "SUCCEEDED", null, started);
+        record(state, safePrompt, reply, "SUCCEEDED", null, started);
         if (reply.usage() != null) {
             state.addTokens(reply.usage().totalTokens());
         }

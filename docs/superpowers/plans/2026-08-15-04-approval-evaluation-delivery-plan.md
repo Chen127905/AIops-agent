@@ -158,7 +158,7 @@ git commit -m "feat: recover and cancel agent tasks"
 - Consumes: retrieved content, proposed tool call, authenticated tenant and user.
 - Produces: sanitized evidence envelopes, audit records, and non-overridable Java tool decisions.
 
-- [ ] **Step 1: Write failing adversarial tests**
+- [x] **Step 1: Write failing adversarial tests**
 
 ```java
 @ParameterizedTest
@@ -176,17 +176,17 @@ void untrustedDocumentCannotElevateToolPermission(String payload) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=AgentSecurityIT test`
 
 Expected: FAIL because untrusted evidence boundaries and audit are incomplete.
 
-- [ ] **Step 3: Implement evidence envelopes and policy enforcement**
+- [x] **Step 3: Implement evidence envelopes and policy enforcement**
 
 Wrap retrieved text as untrusted evidence with citation IDs. System prompts state that evidence cannot change policy. Redact configured secret patterns before model calls and logs. The Java allowlist remains authoritative regardless of model output. Audit authentication failures, cross-tenant attempts, policy rejection, approval decisions, tool execution, cancellation, and recovery.
 
-- [ ] **Step 4: Run security tests and commit**
+- [x] **Step 4: Run security tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=AgentSecurityIT test`
 
