@@ -216,7 +216,7 @@ Execute Knowledge and Agent Task 4 in full. Deterministic Java nodes own state t
 
 Execute Knowledge and Agent Task 5 in full. Persist an event before publishing it, replay `sequence > after` on reconnect, close only the subscription on client disconnect, and keep task lifetime independent from the HTTP connection.
 
-- [ ] **Step 6: Run the Knowledge and Agent acceptance gate**
+- [x] **Step 6: Run the Knowledge and Agent acceptance gate**
 
 ```powershell
 mvn -f server/pom.xml clean verify
