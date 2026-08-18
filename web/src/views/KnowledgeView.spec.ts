@@ -23,10 +23,11 @@ describe('KnowledgeView', () => {
     }])
     const wrapper = mount(KnowledgeView, {
       global: {
-        stubs: { ConsoleLayout: { template: '<div><slot /></div>' } },
+        stubs: { ConsoleLayout: { template: '<div><slot /></div>' }, teleport: true },
       },
     })
 
+    await wrapper.findAll('button').find((button) => button.text().includes('新增文档'))!.trigger('click')
     await wrapper.get('[data-test=ingest-form]').trigger('submit')
     await flushPromises()
     expect(wrapper.text()).toContain('文档 #7 已切分、向量化并发布')

@@ -46,7 +46,7 @@ pwsh -File scripts/seed-knowledge.ps1
 
 一键启动会启用 PostgreSQL/pgvector，并默认使用 `KNOWLEDGE_EMBEDDING_PROVIDER=LOCAL` 的本地确定性向量器，因此不配置模型 Key 也能验证完整的“文档切分 → 向量写入 → 租户过滤 → 相似度检索 → 引用”链路。
 
-登录 `acme / admin / demo-password` 后进入“知识库”，先点击“入库并发布”，再使用默认问题检索。页面会返回 `tenant:...:doc:...:chunk:...` 引用。也可以运行：
+登录 `acme / admin / demo-password` 后进入“知识库”，点击“新增文档”完成入库发布，再使用页面中的语义检索验证召回。页面会返回 `tenant:...:doc:...:chunk:...` 引用。也可以运行：
 
 ```powershell
 pwsh -File scripts/smoke.ps1 -SkipComposeUp

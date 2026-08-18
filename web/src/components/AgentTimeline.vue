@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed, toRef } from 'vue'
+import { computed, toRef, watch } from 'vue'
+import type { AgentTask } from '../api/tickets'
 
 import { useAgentEvents } from '../composables/useAgentEvents'
+import { displayLabel, formatDate } from '../utils/labels'
 
 const props = defineProps<{ taskId: number }>()
+const emit = defineEmits<{ taskUpdated: [task: AgentTask] }>()
 const { events, task, connected, reconnecting, lastSequence } = useAgentEvents(toRef(props, 'taskId'))
+watch(task, (value) => { if (value) emit('taskUpdated', value) })
 
 const hiddenKeys = /reasoning|thought|prompt|chain.?of.?thought/i
 const secretKeys = /password|secret|token|authorization|credential/i
@@ -36,17 +40,17 @@ const stateLabel = computed(() => reconnecting.value
   <section class="timeline-panel">
     <header class="panel-heading">
       <div><span class="mono-label">TASK #{{ taskId }}</span><h3>Agent 执行时间线</h3></div>
-      <span class="connection-state" :class="{ live: connected }">{{ stateLabel }}</span>
+      <span class="connection-state" :class="{ live: connected }"><i />{{ stateLabel }}</span>
     </header>
     <div v-if="task" class="task-meter">
-      <strong>{{ task.status }}</strong>
-      <span>Steps {{ task.stepsUsed }}/{{ task.maxSteps }}</span>
-      <span>Tokens {{ task.tokensUsed }}/{{ task.maxTokens }}</span>
+      <strong>{{ displayLabel(task.status) }}</strong>
+      <span>执行步骤 {{ task.stepsUsed }}/{{ task.maxSteps }}</span>
+      <span>Token {{ task.tokensUsed }}/{{ task.maxTokens }}</span>
     </div>
     <ol v-if="events.length" class="timeline-list">
       <li v-for="event in events" :key="event.sequence">
         <span class="sequence">{{ String(event.sequence).padStart(2, '0') }}</span>
-        <div><strong>{{ event.eventType }}</strong><small>{{ new Date(event.createdAt).toLocaleTimeString() }}</small>
+        <div><div class="event-title"><strong>{{ displayLabel(event.eventType) }}</strong><span class="event-code">{{ event.eventType }}</span><small>{{ formatDate(event.createdAt) }}</small></div>
           <pre v-if="Object.keys(visiblePayload(event.payload)).length">{{ JSON.stringify(visiblePayload(event.payload), null, 2) }}</pre>
         </div>
       </li>

@@ -38,23 +38,23 @@ async function submit(): Promise<void> {
 <template>
   <main class="login-page">
     <section class="brand-panel" aria-label="平台介绍">
-      <p class="eyebrow">ENTERPRISE AIOPS</p>
-      <h1>Ops Agent<br />Platform</h1>
+      <p class="eyebrow">INTELLIGENT OPERATIONS</p>
+      <h1>智能运维<br />Agent 平台</h1>
       <p class="brand-copy">
-        面向企业运维工单的可审计智能诊断与处置平台。
+        让故障诊断、工具执行、人工审批与处置复盘形成可审计的完整闭环。
       </p>
       <div class="signal-card">
         <span class="signal-dot" />
-        <span>CONTROL PLANE READY</span>
+        <span>平台服务已就绪</span>
       </div>
     </section>
 
     <section class="login-panel">
       <form class="login-card" @submit.prevent="submit">
         <header>
-          <p class="section-label">SECURE ACCESS</p>
+          <p class="section-label">安全访问</p>
           <h2>登录控制台</h2>
-          <p>使用租户账号进入隔离的运维工作区</p>
+          <p>使用租户账号进入独立的运维工作区</p>
         </header>
 
         <label>

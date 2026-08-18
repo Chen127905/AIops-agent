@@ -9,6 +9,8 @@ import EvaluationView from '../views/EvaluationView.vue'
 import KnowledgeView from '../views/KnowledgeView.vue'
 import TicketDetailView from '../views/TicketDetailView.vue'
 import TicketListView from '../views/TicketListView.vue'
+import ScenarioView from '../views/ScenarioView.vue'
+import SystemView from '../views/SystemView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -29,6 +31,8 @@ const router = createRouter({
     { path: '/approvals', name: 'approvals', component: ApprovalListView },
     { path: '/knowledge', name: 'knowledge', component: KnowledgeView },
     { path: '/evaluations', name: 'evaluations', component: EvaluationView },
+    { path: '/scenarios', name: 'scenarios', component: ScenarioView },
+    { path: '/system', name: 'system', component: SystemView },
   ],
 })
 

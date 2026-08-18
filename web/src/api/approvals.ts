@@ -18,6 +18,10 @@ export async function listPendingApprovals(): Promise<Approval[]> {
   return (await api.get<Approval[]>('/api/approvals')).data
 }
 
+export async function getApproval(id: number): Promise<Approval> {
+  return (await api.get<Approval>(`/api/approvals/${id}`)).data
+}
+
 export async function approve(id: number, comment?: string): Promise<void> {
   await api.post(`/api/approvals/${id}/approve`, { comment })
 }

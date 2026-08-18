@@ -24,10 +24,21 @@ export interface EvaluationRun {
   mode: string
   provider: string
   model: string
+  promptVersion: string
+  knowledgeVersion: string
   status: string
   metrics: EvaluationMetrics
   startedAt: string
   finishedAt: string | null
+}
+
+export interface EvaluationRunRequest {
+  mode: 'MOCK' | 'LIVE'
+  provider?: 'QWEN' | 'DEEPSEEK'
+  model?: string
+  promptVersion?: string
+  knowledgeVersion?: string
+  caseIds?: string[]
 }
 
 export async function listEvaluationCases(): Promise<EvaluationCase[]> {
@@ -36,4 +47,12 @@ export async function listEvaluationCases(): Promise<EvaluationCase[]> {
 
 export async function runMockEvaluation(): Promise<EvaluationRun> {
   return (await api.post<EvaluationRun>('/api/evaluations/runs', { mode: 'MOCK' })).data
+}
+
+export async function runEvaluation(request: EvaluationRunRequest): Promise<EvaluationRun> {
+  return (await api.post<EvaluationRun>('/api/evaluations/runs', request)).data
+}
+
+export async function getEvaluationRun(runId: string): Promise<EvaluationRun> {
+  return (await api.get<EvaluationRun>(`/api/evaluations/runs/${runId}`)).data
 }

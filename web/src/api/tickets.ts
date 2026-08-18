@@ -72,8 +72,12 @@ export interface AgentEvent {
   createdAt: string
 }
 
-export async function listTickets(): Promise<PageResult<Ticket>> {
-  return (await api.get<PageResult<Ticket>>('/api/tickets')).data
+export async function listTickets(params: {
+  status?: TicketStatus
+  page?: number
+  size?: number
+} = {}): Promise<PageResult<Ticket>> {
+  return (await api.get<PageResult<Ticket>>('/api/tickets', { params })).data
 }
 
 export async function getTicket(id: number): Promise<Ticket> {
@@ -82,6 +86,10 @@ export async function getTicket(id: number): Promise<Ticket> {
 
 export async function createTicket(command: CreateTicket): Promise<Ticket> {
   return (await api.post<Ticket>('/api/tickets', command)).data
+}
+
+export async function cancelTicket(id: number): Promise<void> {
+  await api.post(`/api/tickets/${id}/cancel`)
 }
 
 export async function startAgentTask(ticketId: number): Promise<AgentTask> {
