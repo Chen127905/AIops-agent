@@ -2,7 +2,7 @@
 
 ## Implementation identity
 
-- Frozen production commit: `28c47db05b58639ea8648fe5b2a5076b1bd22598`
+- Frozen production commit: `c0fa81088f750ccfb1dee311813467f62d3e2978`
 - Branch at verification: `feature/foundation`
 - Verification date: 2026-08-18 (Asia/Shanghai)
 - This document is committed after the production commit; code comparisons must use the production commit above.
@@ -38,11 +38,11 @@ git status --short
 
 Results:
 
-- Backend: 96 unit tests and 56 Testcontainers integration tests, 152 total, zero failures.
-- Frontend: clean lockfile install, zero reported vulnerabilities, 7 tests, successful TypeScript and Vite production build.
+- Backend: 99 unit tests and 56 Testcontainers integration tests, 155 total, zero failures.
+- Frontend: clean lockfile install, zero reported vulnerabilities, 9 tests, successful TypeScript and Vite production build.
 - Packaging: Java and Nginx runtime containers ran as non-root UID 10001 and 101; all four long-running services became healthy; only host port 8088 was published.
-- Smoke: login, ticket creation, cross-tenant `404`, Agent task boundary, and all 30 MOCK evaluation cases passed.
-- Stored deterministic evaluation run: `2c5a9805-beca-4ddd-addb-0177a5b1dac7`.
+- Smoke: login, local embedding, pgvector ingestion/search, cross-tenant knowledge isolation, ticket creation, cross-tenant `404`, Agent task boundary, and all 30 MOCK evaluation cases passed.
+- Stored deterministic evaluation run: `6a0d950a-cc01-4eaa-bff6-1cf78c261860`.
 
 ## Final review result
 
@@ -52,4 +52,4 @@ No critical or high-severity issue remained after the freeze review. Hikari may 
 
 ## Live providers and limitations
 
-Qwen (Alibaba Cloud Bailian/DashScope) and DeepSeek are supported behind `ModelGateway`; live execution requires user-supplied keys and is deliberately excluded from deterministic CI. The simulator does not connect to real Prometheus, Loki, CMDB, or release systems. The packaged target is single-machine Compose, not Kubernetes. Enterprise SSO, automated secret rotation, and a distributed tracing backend are outside the frozen six-week scope.
+Qwen (Alibaba Cloud Bailian/DashScope) and DeepSeek are supported behind `ModelGateway`; live execution requires user-supplied keys and is deliberately excluded from deterministic CI. Local knowledge demonstrations use a deterministic lexical embedding, while production semantic retrieval requires explicitly selecting Qwen embedding and re-ingesting documents. The simulator does not connect to real Prometheus, Loki, CMDB, or release systems. The packaged target is single-machine Compose, not Kubernetes. Enterprise SSO, automated secret rotation, and a distributed tracing backend are outside the frozen six-week scope.
