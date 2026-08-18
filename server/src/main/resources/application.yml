@@ -33,6 +33,18 @@ app:
       api-key: "${DEEPSEEK_API_KEY:}"
       base-url: "${DEEPSEEK_BASE_URL:https://api.deepseek.com}"
       model: "${DEEPSEEK_MODEL:deepseek-chat}"
+  agent:
+    provider: "${AGENT_MODEL_PROVIDER:QWEN}"
+    worker-id: "${AGENT_WORKER_ID:local-agent-worker}"
+    lease: "${AGENT_LEASE:PT4M}"
+    defaults:
+      max-steps: "${AGENT_MAX_STEPS:12}"
+      timeout: "${AGENT_TIMEOUT:PT3M}"
+      max-tokens: "${AGENT_MAX_TOKENS:20000}"
+    executor:
+      core-size: "${AGENT_EXECUTOR_CORE_SIZE:2}"
+      max-size: "${AGENT_EXECUTOR_MAX_SIZE:8}"
+      queue-capacity: "${AGENT_EXECUTOR_QUEUE_CAPACITY:32}"
 
 server:
   port: 8080

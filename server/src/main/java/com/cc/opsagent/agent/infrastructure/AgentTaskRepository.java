@@ -147,6 +147,20 @@ public class AgentTaskRepository {
                 step.errorSummary(), step.durationMs());
     }
 
+    public int addUsage(
+            long tenantId,
+            long taskId,
+            int steps,
+            int tokens) {
+        return jdbcTemplate.update("""
+                UPDATE agent_task
+                SET steps_used = steps_used + ?,
+                    tokens_used = tokens_used + ?,
+                    updated_at = CURRENT_TIMESTAMP(6)
+                WHERE tenant_id = ? AND id = ?
+                """, steps, tokens, tenantId, taskId);
+    }
+
     public List<AgentStep> findSteps(long tenantId, long taskId) {
         return List.copyOf(jdbcTemplate.query("""
                 SELECT id, tenant_id, task_id, sequence, node_name, status,

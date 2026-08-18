@@ -54,10 +54,10 @@ public class OpsAgentWorkflow {
         if (!taskService.claim(taskId, workerId, lease)) {
             throw new IllegalStateException("agent task lease could not be claimed");
         }
-        eventService.append(taskId, "TASK_STARTED", Map.of("workerId", workerId));
-
         TaskOutcome outcome;
         try {
+            eventService.append(
+                    taskId, "TASK_STARTED", Map.of("workerId", workerId));
             TicketResponse ticket = ticketService.get(task.ticketId());
             outcome = engine.execute(command(task, ticket));
             validateOutcome(outcome);

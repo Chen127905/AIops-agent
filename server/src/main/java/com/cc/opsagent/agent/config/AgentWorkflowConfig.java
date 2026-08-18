@@ -57,7 +57,7 @@ public class AgentWorkflowConfig {
             AgentWorkflowEngine engine,
             @Value("${app.agent.provider:QWEN}") ModelProvider provider,
             @Value("${app.agent.worker-id:local-agent-worker}") String workerId,
-            @Value("${app.agent.lease:PT30S}") java.time.Duration lease) {
+            @Value("${app.agent.lease:PT4M}") java.time.Duration lease) {
         return new OpsAgentWorkflow(
                 tasks, events, tickets, engine, provider, workerId, lease);
     }

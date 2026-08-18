@@ -212,7 +212,7 @@ Execute Knowledge and Agent Task 3 in full. Enforce one active task per ticket, 
 
 Execute Knowledge and Agent Task 4 in full. Deterministic Java nodes own state transitions, retrieval, risk decisions, approval boundaries, verification, and terminal outcomes. Model output must be parsed into typed records and validated before it influences a tool request.
 
-- [ ] **Step 5: Add bounded background execution and persistent SSE replay**
+- [x] **Step 5: Add bounded background execution and persistent SSE replay**
 
 Execute Knowledge and Agent Task 5 in full. Persist an event before publishing it, replay `sequence > after` on reconnect, close only the subscription on client disconnect, and keep task lifetime independent from the HTTP connection.
 

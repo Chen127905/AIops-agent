@@ -109,6 +109,9 @@ public class AgentTaskService {
                 step.output(),
                 SensitiveDataRedactor.redact(step.errorSummary()),
                 step.durationMs()));
+        if (repository.addUsage(tenantId, step.taskId(), 1, 0) != 1) {
+            throw new IllegalStateException("agent step usage could not be updated");
+        }
     }
 
     @Transactional
@@ -118,7 +121,8 @@ public class AgentTaskService {
         }
         long tenantId = TenantContext.requireTenantId();
         requireTask(tenantId, record.taskId());
-        return invocationRepository.insertModel(tenantId, new ModelInvocationRecord(
+        long invocationId = invocationRepository.insertModel(
+                tenantId, new ModelInvocationRecord(
                 record.taskId(),
                 record.stepId(),
                 record.provider(),
@@ -129,6 +133,11 @@ public class AgentTaskService {
                 record.outputTokens(),
                 record.latencyMs(),
                 SensitiveDataRedactor.redact(record.errorSummary())));
+        int tokens = Math.addExact(record.inputTokens(), record.outputTokens());
+        if (repository.addUsage(tenantId, record.taskId(), 0, tokens) != 1) {
+            throw new IllegalStateException("agent token usage could not be updated");
+        }
+        return invocationId;
     }
 
     @Transactional

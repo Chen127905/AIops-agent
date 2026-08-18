@@ -6,6 +6,8 @@ import com.cc.opsagent.agent.infrastructure.AgentTaskRepository;
 import com.cc.opsagent.identity.security.TenantContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Map;
@@ -17,12 +19,15 @@ public class AgentEventService {
 
     private final AgentTaskRepository taskRepository;
     private final AgentEventRepository eventRepository;
+    private final AgentEventStream eventStream;
 
     public AgentEventService(
             AgentTaskRepository taskRepository,
-            AgentEventRepository eventRepository) {
+            AgentEventRepository eventRepository,
+            AgentEventStream eventStream) {
         this.taskRepository = taskRepository;
         this.eventRepository = eventRepository;
+        this.eventStream = eventStream;
     }
 
     @Transactional
@@ -42,7 +47,9 @@ public class AgentEventService {
         }
         long eventId = eventRepository.insert(
                 tenantId, taskId, sequence, eventType.trim(), safePayload);
-        return eventRepository.find(tenantId, eventId);
+        AgentEvent event = eventRepository.find(tenantId, eventId);
+        publishAfterCommit(event);
+        return event;
     }
 
     public List<AgentEvent> after(long taskId, long afterSequence, int limit) {
@@ -58,5 +65,19 @@ public class AgentEventService {
                     "agent task was not found for the authenticated tenant");
         }
         return eventRepository.findAfter(tenantId, taskId, afterSequence, limit);
+    }
+
+    private void publishAfterCommit(AgentEvent event) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            eventStream.publish(event);
+                        }
+                    });
+        } else {
+            eventStream.publish(event);
+        }
     }
 }

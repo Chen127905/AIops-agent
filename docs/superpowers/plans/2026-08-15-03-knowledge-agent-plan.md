@@ -267,7 +267,7 @@ git commit -m "feat: add controlled ops agent graph"
 - Consumes: `AgentTaskService`, `OpsAgentWorkflow`, and persisted `agent_event` rows.
 - Produces: `POST /api/tickets/{ticketId}/agent-tasks`, `GET /api/agent-tasks/{id}`, `GET /api/agent-tasks/{id}/events?after={sequence}`.
 
-- [ ] **Step 1: Write a failing SSE replay test**
+- [x] **Step 1: Write a failing SSE replay test**
 
 ```java
 @Test
@@ -280,17 +280,17 @@ void reconnectReplaysEventsAfterLastSequenceWithoutCancellingTask() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=AgentTaskControllerIT test`
 
 Expected: FAIL because execution API and SSE are absent.
 
-- [ ] **Step 3: Implement a bounded executor and database-backed event stream**
+- [x] **Step 3: Implement a bounded executor and database-backed event stream**
 
 Use a named `ThreadPoolTaskExecutor` with configurable core/max/queue values and abort rejection. Persist events before publishing them. On SSE connection, replay rows with `sequence > after`, then subscribe to new events. Completion or disconnect closes only the subscription.
 
-- [ ] **Step 4: Run API tests and commit**
+- [x] **Step 4: Run API tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=AgentTaskControllerIT test`
 

@@ -61,6 +61,9 @@ class AgentTaskServiceIT {
     AgentEventService eventService;
 
     @Autowired
+    AgentEventStream eventStream;
+
+    @Autowired
     PersistentAgentExecutionAudit executionAudit;
 
     @Autowired
@@ -289,6 +292,29 @@ class AgentTaskServiceIT {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM tool_invocation WHERE task_id = ?",
                 Integer.class, task.id())).isEqualTo(1);
+        AgentTask audited = taskService.get(task.id());
+        assertThat(audited.stepsUsed()).isEqualTo(1);
+        assertThat(audited.tokensUsed()).isEqualTo(15);
+    }
+
+    @Test
+    void publishesAnEventOnlyAfterItsDatabaseTransactionCommits() {
+        AgentTask task = taskService.start(ticketA, defaultBudget());
+        List<Long> received = new java.util.concurrent.CopyOnWriteArrayList<>();
+        AgentEventStream.Subscription subscription = eventStream.subscribe(
+                task.id(), 0, event -> {
+                    Integer stored = jdbcTemplate.queryForObject(
+                            "SELECT COUNT(*) FROM agent_event WHERE id = ?",
+                            Integer.class, event.id());
+                    if (stored != null && stored == 1) received.add(event.sequence());
+                });
+        subscription.activate(List.of());
+
+        AgentEvent appended = eventService.append(
+                task.id(), "COMMITTED", Map.of());
+
+        assertThat(received).containsExactly(appended.sequence());
+        subscription.close();
     }
 
     private AgentBudget defaultBudget() {
