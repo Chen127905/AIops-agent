@@ -244,7 +244,7 @@ Expected: ingestion, tenant isolation, citations, task uniqueness, workflow succ
 
 Execute Approval and Delivery Task 1 in full. Atomically consume pending approvals with tenant, role, status, and expiry predicates. Revalidate tool policy during resume and enqueue execution only for the winning decision.
 
-- [ ] **Step 2: Implement cancellation, lease recovery, timeout, and graceful shutdown**
+- [x] **Step 2: Implement cancellation, lease recovery, timeout, and graceful shutdown**
 
 Execute Approval and Delivery Task 2 in full. Check cancellation before each node and after each external call. Resume only from safe checkpoints; ambiguous write outcomes enter `MANUAL_REQUIRED`.
 

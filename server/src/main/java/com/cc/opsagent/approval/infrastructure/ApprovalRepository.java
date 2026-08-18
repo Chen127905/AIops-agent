@@ -99,6 +99,12 @@ public class ApprovalRepository {
                 WHERE tenant_id = ? AND id = ?
                   AND status = 'PENDING'
                   AND expires_at > ?
+                  AND EXISTS (
+                      SELECT 1 FROM agent_task task
+                      WHERE task.tenant_id = approval_request.tenant_id
+                        AND task.id = approval_request.task_id
+                        AND task.status = 'WAITING_APPROVAL'
+                  )
                 """, status.name(), decidedBy, comment,
                 tenantId, approvalId, Timestamp.from(now));
     }
@@ -110,6 +116,15 @@ public class ApprovalRepository {
                 WHERE tenant_id = ? AND id = ? AND status = 'PENDING'
                   AND expires_at <= ?
                 """, tenantId, approvalId, Timestamp.from(now));
+    }
+
+    public int cancelPendingForTask(long tenantId, long taskId) {
+        return jdbcTemplate.update("""
+                UPDATE approval_request
+                SET status = 'CANCELLED',
+                    updated_at = CURRENT_TIMESTAMP(6)
+                WHERE tenant_id = ? AND task_id = ? AND status = 'PENDING'
+                """, tenantId, taskId);
     }
 
     public int claimExecution(long tenantId, long approvalId) {
@@ -134,6 +149,30 @@ public class ApprovalRepository {
                     updated_at = CURRENT_TIMESTAMP(6)
                 WHERE tenant_id = ? AND id = ? AND status = 'EXECUTING'
                 """, status.name(), errorSummary, tenantId, approvalId);
+    }
+
+    public Long findExecutingIdForTask(long tenantId, long taskId) {
+        List<Long> ids = jdbcTemplate.query("""
+                SELECT id FROM approval_request
+                WHERE tenant_id = ? AND task_id = ? AND status = 'EXECUTING'
+                ORDER BY execution_started_at DESC
+                LIMIT 1
+                """, (resultSet, rowNumber) -> resultSet.getLong(1),
+                tenantId, taskId);
+        return ids.isEmpty() ? null : ids.getFirst();
+    }
+
+    public boolean hasSuccessfulExecutionRecord(
+            long tenantId,
+            long taskId,
+            long approvalId) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM tool_invocation
+                WHERE tenant_id = ? AND task_id = ?
+                  AND idempotency_key = ? AND status = 'SUCCESS'
+                """, Integer.class, tenantId, taskId,
+                "approval:" + approvalId);
+        return count != null && count > 0;
     }
 
     public ApprovalRequest find(long tenantId, long approvalId) {

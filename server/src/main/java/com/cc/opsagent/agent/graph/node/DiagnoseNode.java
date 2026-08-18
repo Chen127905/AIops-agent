@@ -1,6 +1,7 @@
 package com.cc.opsagent.agent.graph.node;
 
 import com.cc.opsagent.agent.application.AgentExecutionAudit;
+import com.cc.opsagent.agent.application.CancellationProbe;
 import com.cc.opsagent.agent.application.DiagnosticToolGateway;
 import com.cc.opsagent.agent.application.ToolObservation;
 import com.cc.opsagent.agent.graph.OpsAgentState;
@@ -13,16 +14,25 @@ public class DiagnoseNode implements OpsAgentNode {
 
     private final DiagnosticToolGateway tools;
     private final AgentExecutionAudit audit;
+    private final CancellationProbe cancellation;
 
     public DiagnoseNode(DiagnosticToolGateway tools) {
-        this(tools, AgentExecutionAudit.noop());
+        this(tools, AgentExecutionAudit.noop(), CancellationProbe.never());
     }
 
     public DiagnoseNode(
             DiagnosticToolGateway tools,
             AgentExecutionAudit audit) {
+        this(tools, audit, CancellationProbe.never());
+    }
+
+    public DiagnoseNode(
+            DiagnosticToolGateway tools,
+            AgentExecutionAudit audit,
+            CancellationProbe cancellation) {
         this.tools = tools;
         this.audit = audit;
+        this.cancellation = cancellation;
     }
 
     @Override
@@ -53,6 +63,13 @@ public class DiagnoseNode implements OpsAgentNode {
                     result.success() ? ToolExecutionStatus.SUCCESS
                             : ToolExecutionStatus.FAILED,
                     elapsed(started), result.data(), result.error()));
+            if (!state.terminal()
+                    && cancellation.requested(state.command().taskId())) {
+                state.cancel();
+            }
+            if (!state.controlPoint()) {
+                break;
+            }
             if (!result.success()) {
                 state.fail("diagnostic tool failed: " + tool + ": " + result.error());
                 break;

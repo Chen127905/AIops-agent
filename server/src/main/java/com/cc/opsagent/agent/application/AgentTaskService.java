@@ -4,6 +4,7 @@ import com.cc.opsagent.agent.domain.AgentStep;
 import com.cc.opsagent.agent.domain.AgentTask;
 import com.cc.opsagent.agent.domain.AgentTaskStatus;
 import com.cc.opsagent.agent.infrastructure.AgentInvocationRepository;
+import com.cc.opsagent.agent.infrastructure.RecoveryCandidate;
 import com.cc.opsagent.agent.infrastructure.AgentTaskRepository;
 import com.cc.opsagent.identity.security.TenantContext;
 import org.springframework.dao.DuplicateKeyException;
@@ -64,20 +65,62 @@ public class AgentTaskService {
 
     public boolean claim(long taskId, String workerId, Duration lease) {
         validateLease(workerId, lease);
+        Instant now = Instant.now();
         return repository.claim(
                 TenantContext.requireTenantId(),
                 taskId,
                 workerId.trim(),
-                Instant.now().plus(lease)) == 1;
+                now.plus(lease),
+                now) == 1;
     }
 
     public boolean renewLease(long taskId, String workerId, Duration lease) {
         validateLease(workerId, lease);
+        Instant now = Instant.now();
         return repository.renewLease(
                 TenantContext.requireTenantId(),
                 taskId,
                 workerId.trim(),
-                Instant.now().plus(lease)) == 1;
+                now.plus(lease),
+                now) == 1;
+    }
+
+    public boolean requestCancellation(long taskId) {
+        return repository.requestCancellation(
+                TenantContext.requireTenantId(), taskId) == 1;
+    }
+
+    public boolean cancellationRequested(long taskId) {
+        return repository.cancellationRequested(
+                TenantContext.requireTenantId(), taskId);
+    }
+
+    public List<RecoveryCandidate> expiredRunning(Instant now, int limit) {
+        if (now == null || limit < 1 || limit > 500) {
+            throw new IllegalArgumentException("invalid recovery scan parameters");
+        }
+        return repository.findExpiredRunning(now, limit);
+    }
+
+    public boolean claimExpiredForRecovery(
+            long taskId,
+            String workerId,
+            Instant now,
+            Duration lease) {
+        validateLease(workerId, lease);
+        if (now == null) {
+            throw new IllegalArgumentException("recovery time is required");
+        }
+        return repository.claimExpiredForRecovery(
+                TenantContext.requireTenantId(), taskId, workerId.trim(),
+                now, now.plus(lease)) == 1;
+    }
+
+    public int expireApprovalWaits(Instant now) {
+        if (now == null) {
+            throw new IllegalArgumentException("expiry time is required");
+        }
+        return repository.expireApprovalWaits(now);
     }
 
     public boolean transition(

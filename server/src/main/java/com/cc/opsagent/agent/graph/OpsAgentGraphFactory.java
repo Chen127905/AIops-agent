@@ -4,6 +4,7 @@ import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.KeyStrategy;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.cc.opsagent.agent.application.AgentExecutionAudit;
+import com.cc.opsagent.agent.application.CancellationProbe;
 import com.cc.opsagent.agent.graph.node.DecisionNode;
 import com.cc.opsagent.agent.graph.node.DiagnoseNode;
 import com.cc.opsagent.agent.graph.node.OpsAgentNode;
@@ -29,6 +30,7 @@ public class OpsAgentGraphFactory {
     private final VerifyNode verify;
     private final SummarizeNode summarize;
     private final AgentExecutionAudit audit;
+    private final CancellationProbe cancellation;
 
     public OpsAgentGraphFactory(
             TriageNode triage,
@@ -39,7 +41,7 @@ public class OpsAgentGraphFactory {
             VerifyNode verify,
             SummarizeNode summarize) {
         this(triage, retrieve, plan, diagnose, decision, verify, summarize,
-                AgentExecutionAudit.noop());
+                AgentExecutionAudit.noop(), CancellationProbe.never());
     }
 
     public OpsAgentGraphFactory(
@@ -51,6 +53,20 @@ public class OpsAgentGraphFactory {
             VerifyNode verify,
             SummarizeNode summarize,
             AgentExecutionAudit audit) {
+        this(triage, retrieve, plan, diagnose, decision, verify, summarize,
+                audit, CancellationProbe.never());
+    }
+
+    public OpsAgentGraphFactory(
+            TriageNode triage,
+            RetrieveNode retrieve,
+            PlanNode plan,
+            DiagnoseNode diagnose,
+            DecisionNode decision,
+            VerifyNode verify,
+            SummarizeNode summarize,
+            AgentExecutionAudit audit,
+            CancellationProbe cancellation) {
         this.triage = triage;
         this.retrieve = retrieve;
         this.plan = plan;
@@ -59,6 +75,7 @@ public class OpsAgentGraphFactory {
         this.verify = verify;
         this.summarize = summarize;
         this.audit = audit;
+        this.cancellation = cancellation;
     }
 
     public CompiledGraph build() {
@@ -91,7 +108,11 @@ public class OpsAgentGraphFactory {
         graph.addNode(name, node_async(overall -> {
             OpsAgentState state = overall.value(STATE, OpsAgentState.class)
                     .orElseThrow(() -> new IllegalStateException("agent state is missing"));
-            if (!state.terminal()) {
+            if (!state.terminal()
+                    && cancellation.requested(state.command().taskId())) {
+                state.cancel();
+            }
+            if (!state.terminal() && state.shouldExecute(name)) {
                 int sequence = state.nextStepSequence();
                 Map<String, Object> input = state.auditSnapshot();
                 audit.nodeStarted(new AgentExecutionAudit.NodeAudit(
@@ -103,6 +124,10 @@ public class OpsAgentGraphFactory {
                 } catch (RuntimeException exception) {
                     state.fail("agent node " + name + " failed: " + exception.getMessage());
                 }
+                if (!state.terminal()
+                        && cancellation.requested(state.command().taskId())) {
+                    state.cancel();
+                }
                 long durationMs = Math.max(
                         0, (System.nanoTime() - started) / 1_000_000);
                 String status = state.status() == com.cc.opsagent.agent.domain.AgentTaskStatus.FAILED
@@ -110,7 +135,8 @@ public class OpsAgentGraphFactory {
                         ? "FAILED" : "SUCCEEDED";
                 audit.nodeCompleted(new AgentExecutionAudit.NodeAudit(
                         state.command().taskId(), sequence, name, status,
-                        input, state.auditSnapshot(), state.error(), durationMs));
+                        input, state.checkpointSnapshot(),
+                        state.error(), durationMs));
             }
             return Map.of(STATE, state);
         }));

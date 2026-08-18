@@ -4,9 +4,11 @@ import com.cc.opsagent.agent.application.AgentBudget;
 import com.cc.opsagent.agent.application.AgentExecutionAudit;
 import com.cc.opsagent.agent.application.AgentTaskCommand;
 import com.cc.opsagent.agent.application.AgentWorkflowEngine;
+import com.cc.opsagent.agent.application.CancellationProbe;
 import com.cc.opsagent.agent.application.DiagnosticToolGateway;
 import com.cc.opsagent.agent.application.TaskOutcome;
 import com.cc.opsagent.agent.application.ToolObservation;
+import com.cc.opsagent.agent.application.RecoveryCheckpoint;
 import com.cc.opsagent.agent.domain.AgentTaskStatus;
 import com.cc.opsagent.agent.graph.node.DecisionNode;
 import com.cc.opsagent.agent.graph.node.DiagnoseNode;
@@ -184,6 +186,93 @@ class OpsAgentWorkflowTest {
         assertThat(audit.models).hasSize(3);
         assertThat(audit.tools).containsExactly("getServiceHealth");
         assertThat(audit.tenants).isNotEmpty().containsOnly(1L);
+    }
+
+    @Test
+    void resumesAfterTheLastSuccessfulCheckpointWithoutRepeatingEarlierNodes() {
+        TenantPrincipal principal = new TenantPrincipal(
+                1, 7, "operator", Set.of("OPERATOR"));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        principal, null, List.of()));
+        FakeModel model = new FakeModel(
+                "{\"rootCause\":\"pool_exhausted\"," +
+                        "\"proposedAction\":\"NONE\",\"confidence\":0.8}");
+        RecordingAudit audit = new RecordingAudit();
+        AgentWorkflowEngine workflow = workflow(
+                model, new RecordingTools(), audit);
+        RecoveryCheckpoint checkpoint = new RecoveryCheckpoint(
+                "plan", 3, Map.of(
+                        "status", "RUNNING",
+                        "steps", 3,
+                        "tokens", 30,
+                        "category", "REDIS_TIMEOUT",
+                        "urgency", "HIGH",
+                        "plannedTools", List.of("getServiceHealth"),
+                        "evidence", List.of(Map.of(
+                                "tenantId", 1,
+                                "documentId", 9,
+                                "documentVersion", 2,
+                                "chunkIndex", 3,
+                                "source", "runbooks/redis.md",
+                                "content", "pool tuning procedure",
+                                "metadata", Map.of(),
+                                "score", 0.99,
+                                "citationId", "tenant:1:doc:9:v2:chunk:3")),
+                        "observations", List.of(),
+                        "confidence", 0.0));
+
+        TaskOutcome outcome = workflow.resume(command(12), checkpoint);
+
+        assertThat(outcome.status())
+                .withFailMessage("recovered outcome: %s", outcome)
+                .isEqualTo(AgentTaskStatus.SUCCEEDED);
+        assertThat(audit.started).containsExactly(
+                "diagnose", "decision", "verify", "summarize");
+        assertThat(model.calls).isEqualTo(1);
+    }
+
+    @Test
+    void cancellationAfterAnExternalCallStopsBeforeTheNextNode() {
+        FakeModel model = new FakeModel(
+                "{\"category\":\"REDIS_TIMEOUT\",\"urgency\":\"HIGH\"}");
+        KnowledgeRetriever knowledge = query -> List.of();
+        OpsAgentGraphFactory factory = new OpsAgentGraphFactory(
+                new TriageNode(model), new RetrieveNode(knowledge),
+                new PlanNode(model), new DiagnoseNode(new RecordingTools()),
+                new DecisionNode(model), new VerifyNode(), new SummarizeNode(),
+                AgentExecutionAudit.noop(), taskId -> model.calls > 0);
+        AgentWorkflowEngine workflow = new AlibabaGraphWorkflowEngine(factory);
+
+        TaskOutcome outcome = workflow.execute(command(12));
+
+        assertThat(outcome.status()).isEqualTo(AgentTaskStatus.CANCELLED);
+        assertThat(model.calls).isEqualTo(1);
+    }
+
+    @Test
+    void cancellationStopsInsideDiagnosticNodeBeforeTheNextToolCall() {
+        FakeModel model = new FakeModel(
+                "{\"category\":\"REDIS_TIMEOUT\",\"urgency\":\"HIGH\"}",
+                "{\"tools\":[\"getServiceHealth\",\"queryMetrics\",\"queryLogs\"]}");
+        RecordingTools tools = new RecordingTools();
+        KnowledgeRetriever knowledge = query -> List.of();
+        CancellationProbe cancellation = taskId -> tools.names.size() == 1;
+        OpsAgentGraphFactory factory = new OpsAgentGraphFactory(
+                new TriageNode(model, AgentExecutionAudit.noop(), cancellation),
+                new RetrieveNode(knowledge, cancellation),
+                new PlanNode(model, AgentExecutionAudit.noop(), cancellation),
+                new DiagnoseNode(tools, AgentExecutionAudit.noop(), cancellation),
+                new DecisionNode(model, AgentExecutionAudit.noop(), cancellation),
+                new VerifyNode(), new SummarizeNode(),
+                AgentExecutionAudit.noop(), cancellation);
+
+        TaskOutcome outcome = new AlibabaGraphWorkflowEngine(factory)
+                .execute(command(12));
+
+        assertThat(outcome.status()).isEqualTo(AgentTaskStatus.CANCELLED);
+        assertThat(tools.names).containsExactly("getServiceHealth");
+        assertThat(model.calls).isEqualTo(2);
     }
 
     private AgentWorkflowEngine workflow(

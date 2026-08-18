@@ -1,6 +1,7 @@
 package com.cc.opsagent.agent.graph;
 
 import com.cc.opsagent.agent.application.AgentTaskCommand;
+import com.cc.opsagent.agent.application.RecoveryCheckpoint;
 import com.cc.opsagent.agent.application.TaskOutcome;
 import com.cc.opsagent.agent.application.ToolObservation;
 import com.cc.opsagent.agent.domain.AgentTaskStatus;
@@ -15,6 +16,8 @@ public final class OpsAgentState {
 
     private final AgentTaskCommand command;
     private final long startedAtNanos;
+    private String resumeAfterNode;
+    private boolean resumePointReached = true;
     private int steps;
     private int tokens;
     private String category;
@@ -36,7 +39,21 @@ public final class OpsAgentState {
         this.startedAtNanos = System.nanoTime();
     }
 
+    public static OpsAgentState recover(
+            AgentTaskCommand command,
+            RecoveryCheckpoint checkpoint) {
+        OpsAgentState state = new OpsAgentState(command);
+        state.restore(checkpoint.state());
+        state.steps = Math.max(state.steps, checkpoint.completedSequence());
+        state.resumeAfterNode = checkpoint.lastCompletedNode();
+        state.resumePointReached = false;
+        return state;
+    }
+
     public boolean enterStep() {
+        if (!controlPoint()) {
+            return false;
+        }
         if (terminal()) {
             return false;
         }
@@ -61,12 +78,37 @@ public final class OpsAgentState {
         timedOut();
     }
 
+    public boolean controlPoint() {
+        if (terminal()) {
+            return false;
+        }
+        return !timedOut();
+    }
+
+    public void cancel() {
+        if (!terminal()) {
+            status = AgentTaskStatus.CANCELLED;
+            error = "agent cancellation requested";
+        }
+    }
+
+    public boolean shouldExecute(String nodeName) {
+        if (resumePointReached) {
+            return true;
+        }
+        if (resumeAfterNode.equals(nodeName)) {
+            resumePointReached = true;
+        }
+        return false;
+    }
+
     public boolean terminal() {
         return status.terminal() || status == AgentTaskStatus.WAITING_APPROVAL;
     }
 
     public void fail(String message) {
-        if (status == AgentTaskStatus.TIMED_OUT) {
+        if (status == AgentTaskStatus.TIMED_OUT
+                || status == AgentTaskStatus.CANCELLED) {
             return;
         }
         status = AgentTaskStatus.FAILED;
@@ -120,6 +162,18 @@ public final class OpsAgentState {
         return Map.copyOf(snapshot);
     }
 
+    public Map<String, Object> checkpointSnapshot() {
+        Map<String, Object> snapshot = new LinkedHashMap<>(auditSnapshot());
+        snapshot.put("confidence", confidence);
+        snapshot.put("evidence", evidence);
+        snapshot.put("observations", observations);
+        if (verifiedStatus != null) {
+            snapshot.put("verifiedStatus", verifiedStatus.name());
+        }
+        if (error != null) snapshot.put("error", error);
+        return Map.copyOf(snapshot);
+    }
+
     public String error() { return error; }
 
     public AgentTaskCommand command() { return command; }
@@ -157,4 +211,97 @@ public final class OpsAgentState {
         }
     }
     public void report(String value) { report = value; }
+
+    private void restore(Map<String, Object> snapshot) {
+        steps = integer(snapshot.get("steps"), 0);
+        tokens = integer(snapshot.get("tokens"), 0);
+        category = text(snapshot.get("category"));
+        urgency = text(snapshot.get("urgency"));
+        plannedTools = strings(snapshot.get("plannedTools"));
+        rootCause = text(snapshot.get("rootCause"));
+        proposedAction = text(snapshot.get("proposedAction"));
+        actionArguments = objectMap(snapshot.get("actionArguments"));
+        confidence = decimal(snapshot.get("confidence"), 0);
+        report = text(snapshot.get("report"));
+        error = text(snapshot.get("error"));
+        String storedStatus = text(snapshot.get("status"));
+        if (storedStatus != null) {
+            status = AgentTaskStatus.valueOf(storedStatus);
+        }
+        String storedVerification = text(snapshot.get("verifiedStatus"));
+        if (storedVerification != null) {
+            verifiedStatus = AgentTaskStatus.valueOf(storedVerification);
+        }
+        evidence = restoreEvidence(snapshot.get("evidence"));
+        observations.addAll(restoreObservations(snapshot.get("observations")));
+    }
+
+    private List<EvidenceChunk> restoreEvidence(Object value) {
+        if (!(value instanceof List<?> items)) return List.of();
+        List<EvidenceChunk> restored = new ArrayList<>();
+        for (Object item : items) {
+            Map<String, Object> map = objectMap(item);
+            restored.add(new EvidenceChunk(
+                    longValue(map.get("tenantId"), command.tenantId()),
+                    longValue(map.get("documentId"), 0),
+                    integer(map.get("documentVersion"), 0),
+                    integer(map.get("chunkIndex"), 0),
+                    text(map.get("source")),
+                    text(map.get("content")),
+                    stringMap(map.get("metadata")),
+                    decimal(map.get("score"), 0),
+                    text(map.get("citationId"))));
+        }
+        return List.copyOf(restored);
+    }
+
+    private List<ToolObservation> restoreObservations(Object value) {
+        if (!(value instanceof List<?> items)) return List.of();
+        List<ToolObservation> restored = new ArrayList<>();
+        for (Object item : items) {
+            Map<String, Object> map = objectMap(item);
+            restored.add(new ToolObservation(
+                    text(map.get("toolName")),
+                    Boolean.TRUE.equals(map.get("success")),
+                    objectMap(map.get("data")),
+                    text(map.get("error"))));
+        }
+        return List.copyOf(restored);
+    }
+
+    private Map<String, Object> objectMap(Object value) {
+        if (!(value instanceof Map<?, ?> source)) return Map.of();
+        Map<String, Object> result = new LinkedHashMap<>();
+        source.forEach((key, item) -> result.put(String.valueOf(key), item));
+        return Map.copyOf(result);
+    }
+
+    private Map<String, String> stringMap(Object value) {
+        if (!(value instanceof Map<?, ?> source)) return Map.of();
+        Map<String, String> result = new LinkedHashMap<>();
+        source.forEach((key, item) -> result.put(
+                String.valueOf(key), String.valueOf(item)));
+        return Map.copyOf(result);
+    }
+
+    private List<String> strings(Object value) {
+        if (!(value instanceof List<?> items)) return List.of();
+        return items.stream().map(String::valueOf).toList();
+    }
+
+    private String text(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private int integer(Object value, int fallback) {
+        return value instanceof Number number ? number.intValue() : fallback;
+    }
+
+    private long longValue(Object value, long fallback) {
+        return value instanceof Number number ? number.longValue() : fallback;
+    }
+
+    private double decimal(Object value, double fallback) {
+        return value instanceof Number number ? number.doubleValue() : fallback;
+    }
 }

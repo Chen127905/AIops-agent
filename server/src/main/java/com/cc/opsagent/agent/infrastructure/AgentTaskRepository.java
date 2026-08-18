@@ -77,7 +77,8 @@ public class AgentTaskRepository {
                 SELECT id, tenant_id, ticket_id, requested_by, status,
                        max_steps, timeout_seconds, max_tokens,
                        steps_used, tokens_used, worker_id, lease_until,
-                       error_summary, created_at, started_at, finished_at
+                       error_summary, cancel_requested_at, recovery_count,
+                       created_at, started_at, finished_at
                 FROM agent_task
                 WHERE tenant_id = ? AND id = ?
                 """, (resultSet, rowNumber) -> mapTask(resultSet), tenantId, taskId);
@@ -88,7 +89,8 @@ public class AgentTaskRepository {
             long tenantId,
             long taskId,
             String workerId,
-            Instant leaseUntil) {
+            Instant leaseUntil,
+            Instant now) {
         return jdbcTemplate.update("""
                 UPDATE agent_task
                 SET status = 'RUNNING',
@@ -99,23 +101,104 @@ public class AgentTaskRepository {
                 WHERE tenant_id = ? AND id = ?
                   AND status IN ('QUEUED', 'RUNNING')
                   AND (worker_id = ? OR lease_until IS NULL
-                       OR lease_until < CURRENT_TIMESTAMP(6))
-                """, workerId, Timestamp.from(leaseUntil), tenantId, taskId, workerId);
+                       OR lease_until < ?)
+                  AND cancel_requested_at IS NULL
+                """, workerId, Timestamp.from(leaseUntil), tenantId, taskId,
+                workerId, Timestamp.from(now));
     }
 
     public int renewLease(
             long tenantId,
             long taskId,
             String workerId,
-            Instant leaseUntil) {
+            Instant leaseUntil,
+            Instant now) {
         return jdbcTemplate.update("""
                 UPDATE agent_task
                 SET lease_until = ?, updated_at = CURRENT_TIMESTAMP(6)
                 WHERE tenant_id = ? AND id = ?
                   AND status = 'RUNNING'
                   AND worker_id = ?
-                  AND lease_until >= CURRENT_TIMESTAMP(6)
-                """, Timestamp.from(leaseUntil), tenantId, taskId, workerId);
+                  AND lease_until >= ?
+                  AND cancel_requested_at IS NULL
+                """, Timestamp.from(leaseUntil), tenantId, taskId,
+                workerId, Timestamp.from(now));
+    }
+
+    public int requestCancellation(long tenantId, long taskId) {
+        return jdbcTemplate.update("""
+                UPDATE agent_task
+                SET cancel_requested_at = COALESCE(
+                        cancel_requested_at, CURRENT_TIMESTAMP(6)),
+                    updated_at = CURRENT_TIMESTAMP(6)
+                WHERE tenant_id = ? AND id = ?
+                  AND status IN ('QUEUED', 'RUNNING', 'WAITING_APPROVAL')
+                """, tenantId, taskId);
+    }
+
+    public boolean cancellationRequested(long tenantId, long taskId) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM agent_task
+                WHERE tenant_id = ? AND id = ?
+                  AND cancel_requested_at IS NOT NULL
+                """, Integer.class, tenantId, taskId);
+        return count != null && count == 1;
+    }
+
+    public List<RecoveryCandidate> findExpiredRunning(
+            Instant now,
+            int limit) {
+        return List.copyOf(jdbcTemplate.query("""
+                SELECT tenant_id, id, requested_by, lease_until
+                FROM agent_task
+                WHERE status = 'RUNNING' AND lease_until IS NOT NULL
+                  AND lease_until < ?
+                ORDER BY lease_until
+                LIMIT ?
+                """, (resultSet, rowNumber) -> new RecoveryCandidate(
+                resultSet.getLong("tenant_id"),
+                resultSet.getLong("id"),
+                resultSet.getLong("requested_by"),
+                resultSet.getTimestamp("lease_until").toInstant()),
+                Timestamp.from(now), limit));
+    }
+
+    public int claimExpiredForRecovery(
+            long tenantId,
+            long taskId,
+            String workerId,
+            Instant now,
+            Instant leaseUntil) {
+        return jdbcTemplate.update("""
+                UPDATE agent_task
+                SET worker_id = ?, lease_until = ?,
+                    recovery_count = recovery_count + 1,
+                    updated_at = CURRENT_TIMESTAMP(6)
+                WHERE tenant_id = ? AND id = ? AND status = 'RUNNING'
+                  AND lease_until IS NOT NULL AND lease_until < ?
+                """, workerId, Timestamp.from(leaseUntil),
+                tenantId, taskId, Timestamp.from(now));
+    }
+
+    public int expireApprovalWaits(Instant now) {
+        int changedRows = jdbcTemplate.update("""
+                UPDATE agent_task task
+                JOIN approval_request approval
+                  ON approval.tenant_id = task.tenant_id
+                 AND approval.task_id = task.id
+                SET approval.status = 'EXPIRED',
+                    approval.updated_at = CURRENT_TIMESTAMP(6),
+                    task.status = 'TIMED_OUT',
+                    task.worker_id = NULL,
+                    task.lease_until = NULL,
+                    task.finished_at = CURRENT_TIMESTAMP(6),
+                    task.updated_at = CURRENT_TIMESTAMP(6)
+                WHERE task.status = 'WAITING_APPROVAL'
+                  AND approval.status = 'PENDING'
+                  AND approval.expires_at <= ?
+                """, Timestamp.from(now));
+        // MySQL reports one changed row for each updated table in the join.
+        return changedRows / 2;
     }
 
     public int transition(
@@ -218,6 +301,8 @@ public class AgentTaskRepository {
                 resultSet.getString("worker_id"),
                 instant(resultSet.getTimestamp("lease_until")),
                 resultSet.getString("error_summary"),
+                instant(resultSet.getTimestamp("cancel_requested_at")),
+                resultSet.getInt("recovery_count"),
                 instant(resultSet.getTimestamp("created_at")),
                 instant(resultSet.getTimestamp("started_at")),
                 instant(resultSet.getTimestamp("finished_at")));

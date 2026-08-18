@@ -7,6 +7,7 @@ import com.cc.opsagent.agent.application.AgentEventStream;
 import com.cc.opsagent.agent.application.AgentExecutionRejectedException;
 import com.cc.opsagent.agent.application.AgentExecutionService;
 import com.cc.opsagent.agent.application.AgentTaskService;
+import com.cc.opsagent.agent.application.AgentCancellationService;
 import com.cc.opsagent.agent.domain.AgentEvent;
 import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +40,7 @@ public class AgentTaskController {
 
     private final AgentExecutionService executionService;
     private final AgentTaskService taskService;
+    private final AgentCancellationService cancellationService;
     private final AgentEventService eventService;
     private final AgentEventStream eventStream;
     private final int defaultMaxSteps;
@@ -48,6 +50,7 @@ public class AgentTaskController {
     public AgentTaskController(
             AgentExecutionService executionService,
             AgentTaskService taskService,
+            AgentCancellationService cancellationService,
             AgentEventService eventService,
             AgentEventStream eventStream,
             @Value("${app.agent.defaults.max-steps:12}") int defaultMaxSteps,
@@ -55,6 +58,7 @@ public class AgentTaskController {
             @Value("${app.agent.defaults.max-tokens:20000}") int defaultMaxTokens) {
         this.executionService = executionService;
         this.taskService = taskService;
+        this.cancellationService = cancellationService;
         this.eventService = eventService;
         this.eventStream = eventStream;
         this.defaultMaxSteps = defaultMaxSteps;
@@ -74,6 +78,12 @@ public class AgentTaskController {
     @GetMapping("/agent-tasks/{taskId}")
     public AgentTaskResponse get(@PathVariable long taskId) {
         return AgentTaskResponse.from(taskService.get(taskId));
+    }
+
+    @PostMapping("/agent-tasks/{taskId}/cancel")
+    public AgentTaskResponse cancel(@PathVariable long taskId) {
+        return AgentTaskResponse.from(
+                cancellationService.requestCancel(taskId));
     }
 
     @GetMapping(

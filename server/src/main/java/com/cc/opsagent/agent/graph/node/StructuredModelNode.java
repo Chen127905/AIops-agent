@@ -1,6 +1,7 @@
 package com.cc.opsagent.agent.graph.node;
 
 import com.cc.opsagent.agent.application.AgentExecutionAudit;
+import com.cc.opsagent.agent.application.CancellationProbe;
 import com.cc.opsagent.agent.graph.OpsAgentState;
 import com.cc.opsagent.model.ModelGateway;
 import com.cc.opsagent.model.ModelReply;
@@ -18,15 +19,24 @@ abstract class StructuredModelNode {
 
     private final ModelGateway model;
     private final AgentExecutionAudit audit;
+    private final CancellationProbe cancellation;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     StructuredModelNode(ModelGateway model) {
-        this(model, AgentExecutionAudit.noop());
+        this(model, AgentExecutionAudit.noop(), CancellationProbe.never());
     }
 
     StructuredModelNode(ModelGateway model, AgentExecutionAudit audit) {
+        this(model, audit, CancellationProbe.never());
+    }
+
+    StructuredModelNode(
+            ModelGateway model,
+            AgentExecutionAudit audit,
+            CancellationProbe cancellation) {
         this.model = model;
         this.audit = audit;
+        this.cancellation = cancellation;
     }
 
     protected <T> T callStructured(
@@ -70,6 +80,15 @@ abstract class StructuredModelNode {
         if (reply.usage() != null) {
             state.addTokens(reply.usage().totalTokens());
         }
+        boolean cancelled = !state.terminal()
+                && cancellation.requested(state.command().taskId());
+        if (cancelled) {
+            state.cancel();
+        }
+        if (cancelled) {
+            throw new IllegalStateException("agent stopped after model invocation");
+        }
+        state.controlPoint();
         return reply;
     }
 

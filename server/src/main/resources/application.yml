@@ -46,6 +46,10 @@ app:
       core-size: "${AGENT_EXECUTOR_CORE_SIZE:2}"
       max-size: "${AGENT_EXECUTOR_MAX_SIZE:8}"
       queue-capacity: "${AGENT_EXECUTOR_QUEUE_CAPACITY:32}"
+    recovery:
+      enabled: "${AGENT_RECOVERY_ENABLED:true}"
+      interval: "${AGENT_RECOVERY_INTERVAL:PT30S}"
+      initial-delay: "${AGENT_RECOVERY_INITIAL_DELAY:PT1M}"
 
 server:
   port: 8080

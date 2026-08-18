@@ -20,6 +20,7 @@ import com.cc.opsagent.model.ModelGateway;
 import com.cc.opsagent.model.ModelProvider;
 import com.cc.opsagent.ticket.application.TicketService;
 import com.cc.opsagent.approval.application.ApprovalRequestCreator;
+import com.cc.opsagent.agent.application.CancellationProbe;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -37,16 +38,18 @@ public class AgentWorkflowConfig {
             ModelGateway model,
             KnowledgeRetriever knowledge,
             DiagnosticToolGateway tools,
-            AgentExecutionAudit audit) {
+            AgentExecutionAudit audit,
+            CancellationProbe cancellation) {
         OpsAgentGraphFactory factory = new OpsAgentGraphFactory(
-                new TriageNode(model, audit),
-                new RetrieveNode(knowledge),
-                new PlanNode(model, audit),
-                new DiagnoseNode(tools, audit),
-                new DecisionNode(model, audit),
+                new TriageNode(model, audit, cancellation),
+                new RetrieveNode(knowledge, cancellation),
+                new PlanNode(model, audit, cancellation),
+                new DiagnoseNode(tools, audit, cancellation),
+                new DecisionNode(model, audit, cancellation),
                 new VerifyNode(),
                 new SummarizeNode(),
-                audit);
+                audit,
+                cancellation);
         return new AlibabaGraphWorkflowEngine(factory);
     }
 

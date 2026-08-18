@@ -105,7 +105,7 @@ git commit -m "feat: add human approval and graph resume"
 - Consumes: task leases, checkpoints, cancellation flag, and executor.
 - Produces: `void requestCancel(long taskId)`, `RecoveryDecision recover(long taskId)`, periodic expired-lease scan.
 
-- [ ] **Step 1: Write failing recovery tests**
+- [x] **Step 1: Write failing recovery tests**
 
 ```java
 @Test
@@ -123,17 +123,17 @@ void cancellationStopsBeforeNextNode() {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `mvn -f server/pom.xml -Dtest=AgentRecoveryServiceIT test`
 
 Expected: FAIL because recovery is absent.
 
-- [ ] **Step 3: Implement cooperative cancellation and recovery policy**
+- [x] **Step 3: Implement cooperative cancellation and recovery policy**
 
 Check cancellation before each Graph node and after each external call. Recover only checkpoints whose last step is idempotent or whose tool invocation has a completed idempotency record. Unsafe ambiguity transitions to `MANUAL_REQUIRED`. Configure executor wait-for-tasks-on-shutdown and a bounded termination timeout.
 
-- [ ] **Step 4: Run recovery tests and commit**
+- [x] **Step 4: Run recovery tests and commit**
 
 Run: `mvn -f server/pom.xml -Dtest=AgentRecoveryServiceIT test`
 

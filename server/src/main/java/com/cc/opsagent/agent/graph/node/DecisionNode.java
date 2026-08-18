@@ -1,6 +1,7 @@
 package com.cc.opsagent.agent.graph.node;
 
 import com.cc.opsagent.agent.application.AgentExecutionAudit;
+import com.cc.opsagent.agent.application.CancellationProbe;
 import com.cc.opsagent.agent.graph.OpsAgentState;
 import com.cc.opsagent.model.ModelGateway;
 
@@ -12,6 +13,13 @@ public class DecisionNode extends StructuredModelNode implements OpsAgentNode {
 
     public DecisionNode(ModelGateway model, AgentExecutionAudit audit) {
         super(model, audit);
+    }
+
+    public DecisionNode(
+            ModelGateway model,
+            AgentExecutionAudit audit,
+            CancellationProbe cancellation) {
+        super(model, audit, cancellation);
     }
 
     @Override

@@ -8,6 +8,7 @@ import com.cc.opsagent.ticket.application.TicketService;
 import com.cc.opsagent.ticket.web.TicketResponse;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -80,12 +81,49 @@ public class OpsAgentWorkflow {
         if (!taskService.claim(taskId, workerId, lease)) {
             throw new IllegalStateException("agent task lease could not be claimed");
         }
+        return executeClaimed(taskService.get(taskId), null, false);
+    }
+
+    public TaskOutcome resumeClaimed(
+            long taskId,
+            RecoveryCheckpoint checkpoint) {
+        AgentTask task = taskService.get(taskId);
+        if (task.status() != AgentTaskStatus.RUNNING) {
+            throw new IllegalStateException(
+                    "recovered agent task is not running");
+        }
+        return executeClaimed(task, checkpoint, true);
+    }
+
+    private TaskOutcome executeClaimed(
+            AgentTask task,
+            RecoveryCheckpoint checkpoint,
+            boolean recovered) {
+        long taskId = task.id();
         TaskOutcome outcome;
         try {
             eventService.append(
-                    taskId, "TASK_STARTED", Map.of("workerId", workerId));
+                    taskId,
+                    recovered ? "TASK_RECOVERY_STARTED" : "TASK_STARTED",
+                    !recovered
+                            ? Map.of("workerId", workerId)
+                            : Map.of(
+                                    "workerId", workerId,
+                                    "afterNode", checkpoint == null
+                                            ? "BEGINNING" : checkpoint.lastCompletedNode(),
+                                    "afterSequence", checkpoint == null
+                                            ? 0 : checkpoint.completedSequence()));
             TicketResponse ticket = ticketService.get(task.ticketId());
-            outcome = engine.execute(command(task, ticket));
+            if (deadlineExceeded(task)) {
+                outcome = new TaskOutcome(
+                        AgentTaskStatus.TIMED_OUT, null, List.of(), List.of(),
+                        null, null, "agent timeout budget exceeded");
+            } else {
+                AgentTaskCommand command = command(task, ticket);
+                outcome = checkpoint == null
+                        ? engine.execute(command)
+                        : engine.resume(command, checkpoint);
+            }
             validateOutcome(outcome);
         } catch (RuntimeException exception) {
             outcome = new TaskOutcome(
@@ -155,17 +193,31 @@ public class OpsAgentWorkflow {
                 requireText("ticket description", ticket.description()),
                 provider,
                 new AgentBudget(
-                        task.maxSteps(), Duration.ofSeconds(task.timeoutSeconds()),
+                        task.maxSteps(), remainingTimeout(task),
                         task.maxTokens()));
+    }
+
+    private Duration remainingTimeout(AgentTask task) {
+        Duration configured = Duration.ofSeconds(task.timeoutSeconds());
+        if (task.startedAt() == null) return configured;
+        Duration elapsed = Duration.between(task.startedAt(), Instant.now());
+        Duration remaining = configured.minus(elapsed);
+        return remaining.compareTo(Duration.ofSeconds(1)) < 0
+                ? Duration.ofSeconds(1) : remaining;
     }
 
     private void validateOutcome(TaskOutcome outcome) {
         if (outcome == null || outcome.status() == null
                 || outcome.status() == AgentTaskStatus.QUEUED
-                || outcome.status() == AgentTaskStatus.RUNNING
-                || outcome.status() == AgentTaskStatus.CANCELLED) {
+                || outcome.status() == AgentTaskStatus.RUNNING) {
             throw new IllegalStateException("agent engine returned an invalid outcome");
         }
+    }
+
+    private boolean deadlineExceeded(AgentTask task) {
+        return task.startedAt() != null
+                && !Instant.now().isBefore(task.startedAt().plusSeconds(
+                        task.timeoutSeconds()));
     }
 
     private String requireText(String field, String value) {
