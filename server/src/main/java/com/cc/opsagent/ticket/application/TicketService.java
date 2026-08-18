@@ -40,6 +40,7 @@ public class TicketService {
         ticket.setDescription(command.description());
         ticket.setAffectedService(command.affectedService());
         ticket.setCategory(command.category());
+        ticket.setScenarioKey(command.scenarioKey());
         ticket.setSeverity(command.severity() == null
                 ? TicketSeverity.UNKNOWN
                 : command.severity());

@@ -34,7 +34,7 @@ services:
     build:
       context: ./server
     environment:
-      MYSQL_URL: jdbc:mysql://mysql:3306/ops_agent?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+      MYSQL_URL: jdbc:mysql://mysql:3306/ops_agent?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
       MYSQL_USERNAME: ops_agent
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
       VECTOR_DATASOURCE_ENABLED: "true"
@@ -46,6 +46,7 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       AGENT_MODEL_PROVIDER: ${AGENT_MODEL_PROVIDER:-QWEN}
       KNOWLEDGE_EMBEDDING_PROVIDER: ${KNOWLEDGE_EMBEDDING_PROVIDER:-LOCAL}
+      KNOWLEDGE_MIN_SCORE: ${KNOWLEDGE_MIN_SCORE:-0.25}
     depends_on:
       mysql:
         condition: service_healthy

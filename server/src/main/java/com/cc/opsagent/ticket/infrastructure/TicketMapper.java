@@ -15,7 +15,7 @@ interface TicketMapper extends BaseMapper<Ticket> {
 
     @Select("""
             SELECT id, tenant_id, reporter_id, title, description,
-                   affected_service, category, severity, status,
+                   affected_service, category, scenario_key, severity, status,
                    resolution_summary, created_at, updated_at
             FROM ticket
             WHERE tenant_id = #{tenantId} AND id = #{ticketId}
@@ -27,7 +27,7 @@ interface TicketMapper extends BaseMapper<Ticket> {
     @Select("""
             <script>
             SELECT id, tenant_id, reporter_id, title, description,
-                   affected_service, category, severity, status,
+                   affected_service, category, scenario_key, severity, status,
                    resolution_summary, created_at, updated_at
             FROM ticket
             WHERE tenant_id = #{tenantId}

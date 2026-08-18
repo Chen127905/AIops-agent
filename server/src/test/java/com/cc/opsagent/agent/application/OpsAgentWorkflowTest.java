@@ -129,7 +129,8 @@ class OpsAgentWorkflowTest {
     private TicketResponse ticket(String category) {
         return new TicketResponse(
                 88, 1, 7, "Redis latency", "Pool acquisition timed out",
-                "order-service", category, TicketSeverity.HIGH, TicketStatus.OPEN,
+                "order-service", category, "redis-timeout",
+                TicketSeverity.HIGH, TicketStatus.OPEN,
                 null, LocalDateTime.now(), LocalDateTime.now());
     }
 }

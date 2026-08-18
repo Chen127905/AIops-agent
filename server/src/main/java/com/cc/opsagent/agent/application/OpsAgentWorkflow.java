@@ -156,6 +156,7 @@ public class OpsAgentWorkflow {
             throw new IllegalStateException(
                     "agent task status changed before workflow completion");
         }
+        taskService.recordErrorSummary(taskId, outcome.errorSummary());
         if (outcome.status() == AgentTaskStatus.WAITING_APPROVAL) {
             outcome = createApprovalOrRequireManual(task, outcome);
         }
@@ -181,8 +182,7 @@ public class OpsAgentWorkflow {
                     "affected service", ticket.affectedService()));
             approvals.create(
                     task.id(), "task:" + task.id() + ":verify",
-                    requireText("ticket category", ticket.category())
-                            .toLowerCase(Locale.ROOT).replace('_', '-'),
+                    scenarioKey(ticket),
                     requireText("proposed action", outcome.proposedAction()),
                     arguments, approvalTtl);
             return outcome;
@@ -206,10 +206,10 @@ public class OpsAgentWorkflow {
     }
 
     private AgentTaskCommand command(AgentTask task, TicketResponse ticket) {
-        String category = requireText("ticket category", ticket.category());
+        String scenarioKey = scenarioKey(ticket);
         return new AgentTaskCommand(
                 task.id(), task.tenantId(), task.ticketId(),
-                category.trim().toLowerCase(Locale.ROOT).replace('_', '-'),
+                scenarioKey,
                 requireText("affected service", ticket.affectedService()),
                 requireText("ticket title", ticket.title()),
                 requireText("ticket description", ticket.description()),
@@ -247,5 +247,13 @@ public class OpsAgentWorkflow {
             throw new IllegalStateException(field + " is required for agent execution");
         }
         return value.trim();
+    }
+
+    private String scenarioKey(TicketResponse ticket) {
+        String value = ticket.scenarioKey();
+        if (value == null || value.isBlank()) {
+            value = requireText("ticket scenario key", ticket.category());
+        }
+        return value.trim().toLowerCase(Locale.ROOT).replace('_', '-');
     }
 }

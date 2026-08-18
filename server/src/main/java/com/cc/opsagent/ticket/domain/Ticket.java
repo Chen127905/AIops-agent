@@ -11,6 +11,7 @@ public class Ticket {
     private String description;
     private String affectedService;
     private String category;
+    private String scenarioKey;
     private TicketSeverity severity;
     private TicketStatus status;
     private String resolutionSummary;
@@ -71,6 +72,14 @@ public class Ticket {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public String getScenarioKey() {
+        return scenarioKey;
+    }
+
+    public void setScenarioKey(String scenarioKey) {
+        this.scenarioKey = scenarioKey;
     }
 
     public TicketSeverity getSeverity() {

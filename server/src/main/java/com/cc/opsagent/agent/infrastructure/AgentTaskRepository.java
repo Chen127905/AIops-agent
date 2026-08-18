@@ -29,7 +29,9 @@ public class AgentTaskRepository {
             };
 
     private final JdbcTemplate jdbcTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .findAndRegisterModules()
+            .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     public AgentTaskRepository(
             @Qualifier("businessJdbcTemplate") JdbcTemplate jdbcTemplate) {
@@ -242,6 +244,17 @@ public class AgentTaskRepository {
                     updated_at = CURRENT_TIMESTAMP(6)
                 WHERE tenant_id = ? AND id = ?
                 """, steps, tokens, tenantId, taskId);
+    }
+
+    public int updateErrorSummary(
+            long tenantId,
+            long taskId,
+            String errorSummary) {
+        return jdbcTemplate.update("""
+                UPDATE agent_task
+                SET error_summary = ?, updated_at = CURRENT_TIMESTAMP(6)
+                WHERE tenant_id = ? AND id = ?
+                """, errorSummary, tenantId, taskId);
     }
 
     public List<AgentStep> findSteps(long tenantId, long taskId) {

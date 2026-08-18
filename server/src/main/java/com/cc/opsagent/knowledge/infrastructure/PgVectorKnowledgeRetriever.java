@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.List;
 import java.util.Map;
@@ -31,12 +32,18 @@ public class PgVectorKnowledgeRetriever implements KnowledgeRetriever {
     private final JdbcTemplate jdbcTemplate;
     private final EmbeddingGateway embeddingGateway;
     private final ObjectMapper objectMapper;
+    private final double minScore;
 
     public PgVectorKnowledgeRetriever(
             @Qualifier("vectorJdbcTemplate") JdbcTemplate jdbcTemplate,
-            EmbeddingGateway embeddingGateway) {
+            EmbeddingGateway embeddingGateway,
+            @Value("${app.knowledge.retrieval.min-score:0.25}") double minScore) {
+        if (minScore < -1 || minScore > 1) {
+            throw new IllegalArgumentException("knowledge minimum score must be between -1 and 1");
+        }
         this.jdbcTemplate = jdbcTemplate;
         this.embeddingGateway = embeddingGateway;
+        this.minScore = minScore;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -66,6 +73,7 @@ public class PgVectorKnowledgeRetriever implements KnowledgeRetriever {
                 FROM knowledge_chunk chunk
                 WHERE chunk.tenant_id = ?
                   AND chunk.published = true
+                  AND 1 - (chunk.embedding <=> CAST(? AS vector)) >= ?
                   AND chunk.document_version = (
                       SELECT MAX(active.document_version)
                       FROM knowledge_chunk active
@@ -91,7 +99,7 @@ public class PgVectorKnowledgeRetriever implements KnowledgeRetriever {
                     readMetadata(resultSet.getString("metadata_json")),
                     resultSet.getDouble("score"),
                     citationId(tenantId, documentId, version, chunkIndex));
-        }, vector, tenantId, vector, query.topK()));
+        }, vector, tenantId, vector, minScore, vector, query.topK()));
     }
 
     private Map<String, String> readMetadata(String json) {

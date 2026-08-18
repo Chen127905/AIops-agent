@@ -202,7 +202,8 @@ public class ProductionEvaluationWorkflow implements EvaluationWorkflowPort {
         Instant started = Instant.now();
         var ticket = tickets.create(new CreateTicketCommand(
                 evaluationCase.title(), evaluationCase.description(),
-                scenario.service(), evaluationCase.scenarioKey(), scenario.severity()));
+                scenario.service(), scenario.category(), evaluationCase.scenarioKey(),
+                scenario.severity()));
         AgentTask task = tasks.start(ticket.id(), new AgentBudget(
                 12, Duration.ofMinutes(3), 20_000));
         TaskOutcome outcome = workflow.run(task.id());

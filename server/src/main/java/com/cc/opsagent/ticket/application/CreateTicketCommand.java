@@ -7,5 +7,6 @@ public record CreateTicketCommand(
         String description,
         String affectedService,
         String category,
+        String scenarioKey,
         TicketSeverity severity) {
 }

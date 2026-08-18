@@ -45,11 +45,18 @@ public class DecisionNode extends StructuredModelNode implements OpsAgentNode {
         try {
             Decision decision = callStructured(state, """
                     Decide the root cause and proposed action from validated observations.
-                    Return JSON with rootCause, proposedAction, actionArguments and confidence.
+                    proposedAction must be exactly one of: NONE, restartService, changeConfig.
+                    Use NONE when no automated write is justified. For restartService use an
+                    empty actionArguments object. For changeConfig, actionArguments must be
+                    {"changes":{"configurationKey":"configurationValue"}}.
+                    Return strict JSON only with rootCause, proposedAction, actionArguments
+                    and confidence (a number from 0 to 1).
                     Ticket category: %s
+                    Affected service: %s
                     %s
                     """.formatted(
                             state.category(),
+                            state.command().affectedService(),
                             untrustedContent.diagnosticEnvelope(
                                     state.evidence(), state.observations())),
                     Decision.class);

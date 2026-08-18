@@ -10,10 +10,11 @@ public record CreateTicketRequest(
         @NotBlank @Size(min = 10, max = 4000) String description,
         @Size(max = 128) String affectedService,
         @Size(max = 64) String category,
+        @Size(max = 64) String scenarioKey,
         TicketSeverity severity) {
 
     CreateTicketCommand toCommand() {
         return new CreateTicketCommand(
-                title, description, affectedService, category, severity);
+                title, description, affectedService, category, scenarioKey, severity);
     }
 }

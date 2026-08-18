@@ -11,6 +11,7 @@ export interface Ticket {
   description: string
   affectedService: string | null
   category: string | null
+  scenarioKey: string | null
   severity: TicketSeverity
   status: TicketStatus
   resolutionSummary: string | null
@@ -30,7 +31,20 @@ export interface CreateTicket {
   description: string
   affectedService?: string
   category?: string
+  scenarioKey?: string
   severity: TicketSeverity
+}
+
+export interface OpsScenario {
+  key: string
+  service: string
+  category: string
+  severity: TicketSeverity
+  requiresApproval: boolean
+}
+
+export async function listScenarios(): Promise<OpsScenario[]> {
+  return (await api.get<OpsScenario[]>('/api/scenarios')).data
 }
 
 export interface AgentTask {

@@ -65,6 +65,7 @@ public class AgentExecutionService {
             }
             Map<String, Object> payload = new LinkedHashMap<>();
             String error = SensitiveDataRedactor.redact(exception.getMessage());
+            taskService.recordErrorSummary(taskId, error);
             if (error != null) payload.put("error", error);
             eventService.append(taskId, "TASK_EXECUTION_FAILED", payload);
         }

@@ -229,6 +229,17 @@ public class AgentTaskService {
         return repository.findSteps(tenantId, taskId);
     }
 
+    public void recordErrorSummary(long taskId, String errorSummary) {
+        if (errorSummary == null || errorSummary.isBlank()) return;
+        long tenantId = TenantContext.requireTenantId();
+        requireTask(tenantId, taskId);
+        String safe = SensitiveDataRedactor.redact(errorSummary);
+        if (safe.length() > 512) safe = safe.substring(0, 512);
+        if (repository.updateErrorSummary(tenantId, taskId, safe) != 1) {
+            throw new IllegalStateException("agent error summary could not be updated");
+        }
+    }
+
     private AgentTask requireTask(long tenantId, long taskId) {
         AgentTask task = repository.find(tenantId, taskId);
         if (task == null) {

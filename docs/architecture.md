@@ -8,7 +8,7 @@ flowchart LR
     Nginx --> API["Spring Boot control plane"]
     API --> MySQL[(MySQL business state)]
     API --> Vector[(PostgreSQL + pgvector)]
-    API --> LocalEmbedding["Local lexical embedding (demo)"]
+    API --> Embedding["Local demo / Qwen embedding"]
     API --> Model["Qwen / DeepSeek compatible APIs"]
     API --> Simulator["Deterministic ops simulator"]
     Prometheus["Prometheus scraper"] -->|admin protected| API
@@ -37,7 +37,7 @@ flowchart LR
     Approval -->|single winning decision| Decision
 ```
 
-模型只产生结构化建议。Java 节点控制状态迁移、工具白名单、风险判断、审批和终态；模型文本不能授予权限。每个节点落库后才发布 SSE 事件，客户端使用 `after=<sequence>` 重放。
+模型只产生结构化建议。Java 节点控制状态迁移、工具白名单、风险判断、审批和终态；模型文本不能授予权限。审批写操作执行后，平台会再次调用只读健康检查，只有返回 `RECOVERED` 才记录 `POST_ACTION_VERIFIED` 并完成任务。每个节点落库后才发布 SSE 事件，客户端使用 `after=<sequence>` 重放。
 
 ## Persistence and recovery
 

@@ -7,7 +7,7 @@ spring:
 app:
   datasource:
     business:
-      url: "${MYSQL_URL:jdbc:mysql://localhost:3307/ops_agent?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}"
+      url: "${MYSQL_URL:jdbc:mysql://localhost:3307/ops_agent?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false}"
       username: "${MYSQL_USERNAME:ops_agent}"
       password: "${MYSQL_PASSWORD:change-me-mysql}"
       driver-class-name: com.mysql.cj.jdbc.Driver
@@ -54,6 +54,9 @@ app:
       enabled: "${AGENT_RECOVERY_ENABLED:true}"
       interval: "${AGENT_RECOVERY_INTERVAL:PT30S}"
       initial-delay: "${AGENT_RECOVERY_INITIAL_DELAY:PT1M}"
+  knowledge:
+    retrieval:
+      min-score: "${KNOWLEDGE_MIN_SCORE:0.25}"
 
 server:
   port: 8080

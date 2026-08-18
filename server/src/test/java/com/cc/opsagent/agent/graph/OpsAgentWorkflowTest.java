@@ -76,6 +76,11 @@ class OpsAgentWorkflowTest {
         assertThat(outcome.report())
                 .contains("redis_connection_pool_exhausted")
                 .contains("tenant:1:doc:9:v2:chunk:3");
+        assertThat(model.prompts.get(1))
+                .contains("getServiceHealth", "queryMetrics", "queryLogs",
+                        "getServiceDependencies", "Do not invent tool names");
+        assertThat(model.prompts.get(2))
+                .contains("NONE, restartService, changeConfig", "order-service");
     }
 
     @Test
@@ -341,6 +346,7 @@ class OpsAgentWorkflowTest {
     private static final class FakeModel implements ModelGateway {
 
         private final Deque<String> replies;
+        private final List<String> prompts = new ArrayList<>();
         private int calls;
         private long delayMillis;
 
@@ -351,6 +357,7 @@ class OpsAgentWorkflowTest {
         @Override
         public ModelReply call(ModelProvider provider, ModelRequest request) {
             calls++;
+            prompts.add(request.prompt());
             if (delayMillis > 0) {
                 try {
                     Thread.sleep(delayMillis);

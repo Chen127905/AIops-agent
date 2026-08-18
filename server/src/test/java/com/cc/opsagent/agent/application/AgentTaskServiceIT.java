@@ -227,7 +227,9 @@ class AgentTaskServiceIT {
                 task.id(), null, "queryLogs",
                 Map.of("service", "order-api", "maxLines", 20),
                 ToolRisk.READ_ONLY, ToolExecutionStatus.SUCCESS,
-                "logs-once", 12, Map.of("lines", 20), null);
+                "logs-once", 12, Map.of(
+                        "lines", 20,
+                        "observedAt", Instant.parse("2026-08-18T10:00:00Z")), null);
         long firstToolInvocationId = taskService.appendToolInvocation(toolRecord);
         long duplicateToolInvocationId = taskService.appendToolInvocation(toolRecord);
         ToolInvocationRecord conflictingRecord = new ToolInvocationRecord(
@@ -257,6 +259,11 @@ class AgentTaskServiceIT {
                 SELECT JSON_UNQUOTE(JSON_EXTRACT(normalized_arguments, '$.service'))
                 FROM tool_invocation WHERE id = ?
                 """, String.class, firstToolInvocationId)).isEqualTo("order-api");
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT JSON_UNQUOTE(JSON_EXTRACT(result_summary, '$.observedAt'))
+                FROM tool_invocation WHERE id = ?
+                """, String.class, firstToolInvocationId))
+                .isEqualTo("2026-08-18T10:00:00Z");
     }
 
     @Test

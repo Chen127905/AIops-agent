@@ -110,6 +110,12 @@ class ApprovalServiceIT {
                 SELECT COUNT(*) FROM tool_invocation
                 WHERE task_id = ? AND tool_name = 'restartService'
                 """, Integer.class, task.id())).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM tool_invocation
+                WHERE task_id = ? AND tool_name = 'getServiceHealth'
+                  AND JSON_UNQUOTE(JSON_EXTRACT(normalized_arguments, '$.phase'))
+                      = 'post-action'
+                """, Integer.class, task.id())).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT status FROM agent_task WHERE id = ?",
                 String.class, task.id())).isEqualTo("SUCCEEDED");
@@ -182,6 +188,23 @@ class ApprovalServiceIT {
                 .isEqualTo(AgentTaskStatus.MANUAL_REQUIRED);
         assertThatThrownBy(() -> approvalService.reject(approval.id(), "again"))
                 .isInstanceOf(ApprovalDecisionException.class);
+    }
+
+    @Test
+    void failedApprovedExecutionPersistsTaskErrorSummary() throws Exception {
+        AgentTask task = waitingTask();
+        ApprovalRequest approval = approvalService.create(
+                task.id(), "checkpoint", "redis-timeout", "restartService",
+                Map.of("service", "wrong-service"), Duration.ofMinutes(5));
+        authenticate(tenantA, adminA, "ADMIN");
+
+        approvalService.approve(approval.id(), "exercise failure audit");
+
+        awaitApproval(approval.id(), ApprovalStatus.FAILED);
+        AgentTask failed = taskService.get(task.id());
+        assertThat(failed.status()).isIn(
+                AgentTaskStatus.FAILED, AgentTaskStatus.MANUAL_REQUIRED);
+        assertThat(failed.errorSummary()).isNotBlank();
     }
 
     private AgentTask waitingTask() {

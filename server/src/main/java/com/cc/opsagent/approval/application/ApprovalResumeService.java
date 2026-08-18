@@ -8,12 +8,15 @@ import com.cc.opsagent.approval.domain.ApprovalStatus;
 import com.cc.opsagent.approval.infrastructure.ApprovalRepository;
 import com.cc.opsagent.identity.security.TenantContext;
 import com.cc.opsagent.simulator.application.OpsContext;
+import com.cc.opsagent.simulator.application.OpsDataProvider.HealthSnapshot;
+import com.cc.opsagent.simulator.domain.ScenarioState;
 import com.cc.opsagent.tool.application.OpsToolFacade;
 import com.cc.opsagent.tool.application.ToolPolicyService;
 import com.cc.opsagent.tool.domain.ToolDecision;
 import com.cc.opsagent.tool.domain.ToolExecutionStatus;
 import com.cc.opsagent.tool.domain.ToolInvocationRequest;
 import com.cc.opsagent.tool.domain.ToolResult;
+import com.cc.opsagent.tool.domain.ToolRisk;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
@@ -76,6 +79,11 @@ public class ApprovalResumeService {
                     command.idempotencyKey(), elapsed(started),
                     resultSummary(result), result.message()));
             if (result.status() == ToolExecutionStatus.SUCCESS) {
+                if (!verifyRecovery(command)) {
+                    failRunning(command,
+                            "post-action verification did not confirm service recovery");
+                    return;
+                }
                 if (!taskService.transition(
                         command.taskId(), AgentTaskStatus.RUNNING,
                         AgentTaskStatus.SUCCEEDED)) {
@@ -117,6 +125,37 @@ public class ApprovalResumeService {
         };
     }
 
+    private boolean verifyRecovery(ResumeCommand command) {
+        String service = requiredString(command.normalizedArguments(), "service");
+        OpsContext context = new OpsContext(
+                command.tenantId(), command.taskId(), command.scenarioKey());
+        long started = System.nanoTime();
+        ToolResult<HealthSnapshot> verification =
+                tools.getServiceHealth(context, service);
+        HealthSnapshot health = verification.data();
+        boolean recovered = verification.status() == ToolExecutionStatus.SUCCESS
+                && health != null
+                && health.scenarioState() == ScenarioState.RECOVERED
+                && "UP".equalsIgnoreCase(health.status());
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("status", verification.status().name());
+        summary.put("recovered", recovered);
+        if (health != null) {
+            summary.put("serviceStatus", health.status());
+            summary.put("scenarioState", health.scenarioState().name());
+        }
+        taskService.appendToolInvocation(new ToolInvocationRecord(
+                command.taskId(), null, "getServiceHealth",
+                Map.of("service", service, "phase", "post-action"),
+                ToolRisk.READ_ONLY, verification.status(), null,
+                elapsed(started), Map.copyOf(summary), verification.message()));
+        eventService.append(command.taskId(), "POST_ACTION_VERIFIED", Map.of(
+                "approvalId", command.approvalId(),
+                "service", service,
+                "recovered", recovered));
+        return recovered;
+    }
+
     private Map<String, String> changes(Map<String, Object> arguments) {
         Object value = arguments.get("changes");
         if (!(value instanceof Map<?, ?> source) || source.isEmpty()) {
@@ -143,21 +182,24 @@ public class ApprovalResumeService {
     }
 
     private void fail(ResumeCommand command, String error) {
+        String safe = safeError(error);
         repository.finishExecution(
                 command.tenantId(), command.approvalId(),
-                ApprovalStatus.FAILED, safeError(error));
+                ApprovalStatus.FAILED, safe);
         taskService.transition(
                 command.taskId(), AgentTaskStatus.WAITING_APPROVAL,
                 AgentTaskStatus.MANUAL_REQUIRED);
+        taskService.recordErrorSummary(command.taskId(), safe);
         eventService.append(command.taskId(), "APPROVAL_EXECUTION_FAILED", Map.of(
                 "approvalId", command.approvalId(),
-                "error", safeError(error)));
+                "error", safe));
     }
 
     private void failRunning(ResumeCommand command, String error) {
+        String safe = safeError(error);
         repository.finishExecution(
                 command.tenantId(), command.approvalId(),
-                ApprovalStatus.FAILED, safeError(error));
+                ApprovalStatus.FAILED, safe);
         AgentTaskStatus status = taskService.get(command.taskId()).status();
         if (status == AgentTaskStatus.RUNNING) {
             taskService.transition(
@@ -168,9 +210,10 @@ public class ApprovalResumeService {
                     command.taskId(), AgentTaskStatus.WAITING_APPROVAL,
                     AgentTaskStatus.MANUAL_REQUIRED);
         }
+        taskService.recordErrorSummary(command.taskId(), safe);
         eventService.append(command.taskId(), "APPROVAL_EXECUTION_FAILED", Map.of(
                 "approvalId", command.approvalId(),
-                "error", safeError(error)));
+                "error", safe));
     }
 
     private String safeError(String value) {
