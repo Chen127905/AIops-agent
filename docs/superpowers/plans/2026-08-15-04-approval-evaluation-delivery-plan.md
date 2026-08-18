@@ -400,7 +400,7 @@ pwsh -File scripts/smoke.ps1
 
 Expected: every command passes; live-model evaluation remains a separate documented command requiring real keys.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/Dockerfile web/Dockerfile compose.yml README.md docs .github scripts

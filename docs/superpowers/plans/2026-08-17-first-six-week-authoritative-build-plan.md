@@ -336,7 +336,7 @@ Acceptance result on 2026-08-18: backend and frontend images built successfully;
 - Consumes: the complete first-six-week implementation and all stored deterministic test fixtures.
 - Produces: a clean authoritative branch, reproducible verification evidence, and one immutable reference commit ID for curriculum comparison.
 
-- [ ] **Step 1: Run the complete backend gate from a clean target directory**
+- [x] **Step 1: Run the complete backend gate from a clean target directory**
 
 ```powershell
 $env:JAVA_HOME='C:\Users\Administrator\.jdks\ms-21.0.12'
@@ -346,7 +346,7 @@ mvn -f server/pom.xml clean verify
 
 Expected: all unit and integration suites pass; disposable MySQL and PostgreSQL databases migrate from empty schemas; no test depends on Qwen or DeepSeek availability.
 
-- [ ] **Step 2: Run the complete frontend gate**
+- [x] **Step 2: Run the complete frontend gate**
 
 ```powershell
 npm --prefix web ci
@@ -356,7 +356,7 @@ npm --prefix web run build
 
 Expected: installation is lockfile-reproducible, all tests pass, and production build has no TypeScript error.
 
-- [ ] **Step 3: Run deployment and smoke gates**
+- [x] **Step 3: Run deployment and smoke gates**
 
 ```powershell
 docker compose --env-file .env.example config --quiet
@@ -366,7 +366,7 @@ pwsh -File scripts/smoke.ps1
 
 Expected: images build, health dependencies settle, deterministic demonstration passes, and tenant-isolation smoke checks return the documented status codes.
 
-- [ ] **Step 4: Run static repository checks**
+- [x] **Step 4: Run static repository checks**
 
 ```powershell
 git diff --check
@@ -376,11 +376,11 @@ git log -1 --oneline
 
 Expected: no whitespace errors and no uncommitted authoritative changes. Generated secrets, provider responses containing sensitive content, database data, Maven targets, frontend dependencies, and build output are untracked only when intentionally ignored; none are committed.
 
-- [ ] **Step 5: Perform the final whole-system review**
+- [x] **Step 5: Perform the final whole-system review**
 
 Review authentication, tenant predicates, approval atomicity, conditional state updates, idempotency, recovery ambiguity, SSE ownership, secret handling, model boundaries, migration compatibility, and deployment defaults. Reproduce and fix every critical or high-severity finding before continuing.
 
-- [ ] **Step 6: Record the reference version**
+- [x] **Step 6: Record the reference version**
 
 Create `docs/teaching/reference-version.md` containing the production commit ID that passed Steps 1-5, Java/Node/Docker versions, exact verification commands, test totals, deterministic evaluation run ID, supported live providers, and known limitations. Commit this record separately without changing production behavior. The recorded production commit, rather than the later documentation commit, is the frozen implementation used for code comparison.
 
