@@ -366,25 +366,25 @@ git commit -m "feat: add ops agent workflow ui"
 - Consumes: complete backend and frontend.
 - Produces: one-command local deployment, CI, architecture/evaluation/security evidence, and deterministic demo.
 
-- [ ] **Step 1: Add a failing smoke script**
+- [x] **Step 1: Add a failing smoke script**
 
 The script fails unless health is UP, login succeeds, a ticket can start, one mock evaluation completes, and cross-tenant access returns 404.
 
-- [ ] **Step 2: Run it before packaging**
+- [x] **Step 2: Run it before packaging**
 
 Run: `pwsh -File scripts/smoke.ps1`
 
 Expected: FAIL because packaged services are absent.
 
-- [ ] **Step 3: Add production images and Compose wiring**
+- [x] **Step 3: Add production images and Compose wiring**
 
 Build the backend as a non-root Java 21 image and the frontend as static assets served by Nginx. Compose waits for database health, injects secrets through environment variables, persists database volumes, and exposes only required ports.
 
-- [ ] **Step 4: Write evidence-based documentation**
+- [x] **Step 4: Write evidence-based documentation**
 
 `README.md` documents scope, architecture, startup, demo accounts, scenario list, API keys, tests, limitations, and original contribution. `docs/evaluation.md` contains commands and stored run IDs, not invented numbers. `docs/security.md` documents threat boundaries and forbidden tools.
 
-- [ ] **Step 5: Run the full verification gate**
+- [x] **Step 5: Run the full verification gate**
 
 Run:
 

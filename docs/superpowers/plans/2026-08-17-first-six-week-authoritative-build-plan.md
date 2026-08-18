@@ -305,15 +305,15 @@ Expected: component and composable tests pass; TypeScript and production bundlin
 
 Acceptance result on 2026-08-18: clean dependency install reported zero vulnerabilities, 7 frontend tests passed, and the Vite production build completed without TypeScript errors.
 
-- [ ] **Step 3: Package backend and frontend services**
+- [x] **Step 3: Package backend and frontend services**
 
 Execute Approval and Delivery Task 7 in full. Use non-root runtime images, database health dependencies, environment-only secrets, persistent data volumes, and only the ports needed for the demonstration.
 
-- [ ] **Step 4: Write evidence-based project documentation**
+- [x] **Step 4: Write evidence-based project documentation**
 
 Document implemented scope, architecture, module boundaries, startup, credentials, scenarios, tests, evaluation commands, security boundaries, limitations, demo sequence, and original engineering contributions. Do not invent evaluation percentages; cite stored run IDs and generated result files.
 
-- [ ] **Step 5: Run packaged smoke verification**
+- [x] **Step 5: Run packaged smoke verification**
 
 ```powershell
 docker compose --env-file .env.example config --quiet
@@ -322,6 +322,8 @@ pwsh -File scripts/smoke.ps1
 ```
 
 Expected: health is UP, login succeeds, a tenant can create and start a ticket, a deterministic workflow finishes or suspends as designed, one mock evaluation completes, and cross-tenant ticket access returns `404`.
+
+Acceptance result on 2026-08-18: backend and frontend images built successfully; both runtime containers used non-root users; MySQL, pgvector, backend, and frontend became healthy; only frontend port `8088` was published; smoke verification passed tenant login, cross-tenant `404`, ticket and Agent creation, and all 30 MOCK evaluation cases with run ID `2c5a9805-beca-4ddd-addb-0177a5b1dac7`.
 
 ### Task 6: Execute the Whole-System Freeze Gate
 
