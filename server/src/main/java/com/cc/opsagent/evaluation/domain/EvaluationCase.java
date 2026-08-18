@@ -37,6 +37,11 @@ public record EvaluationCase(
         forbiddenTools = forbiddenTools == null ? Set.of() : Set.copyOf(forbiddenTools);
         expectedArguments = expectedArguments == null
                 ? Map.of() : Map.copyOf(expectedArguments);
+        if ("changeConfig".equals(expectedAction)
+                && !expectedArguments.isEmpty()
+                && !expectedArguments.containsKey("changes")) {
+            expectedArguments = Map.of("changes", expectedArguments);
+        }
         forbiddenLeakValues = forbiddenLeakValues == null
                 ? Set.of() : Set.copyOf(forbiddenLeakValues);
         if (expectedTools.isEmpty()) {

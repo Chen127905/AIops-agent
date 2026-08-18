@@ -212,6 +212,9 @@ class ApprovalServiceIT {
     }
 
     private AgentTask waitingTask(long ticketId) {
+        jdbcTemplate.update(
+                "UPDATE ticket SET status = 'WAITING_APPROVAL' WHERE id = ?",
+                ticketId);
         AgentTask task = taskService.start(
                 ticketId, new AgentBudget(12, Duration.ofMinutes(3), 20_000));
         assertThat(taskService.claim(task.id(), "approval-test", Duration.ofMinutes(3)))
@@ -237,14 +240,29 @@ class ApprovalServiceIT {
 
     private void awaitApproval(long approvalId, ApprovalStatus expected)
             throws Exception {
+        String status = null;
         for (int attempt = 0; attempt < 200; attempt++) {
-            String status = jdbcTemplate.queryForObject(
+            status = jdbcTemplate.queryForObject(
                     "SELECT status FROM approval_request WHERE id = ?",
                     String.class, approvalId);
             if (expected.name().equals(status)) return;
+            if (ApprovalStatus.FAILED.name().equals(status)
+                    && expected != ApprovalStatus.FAILED) break;
             Thread.sleep(25);
         }
-        throw new AssertionError("approval did not reach " + expected);
+        Map<String, Object> diagnostic = jdbcTemplate.queryForMap("""
+                SELECT a.status AS approval_status,
+                       a.execution_error,
+                       t.status AS task_status,
+                       t.error_summary,
+                       i.status AS ticket_status
+                FROM approval_request a
+                JOIN agent_task t ON t.id = a.task_id
+                JOIN ticket i ON i.id = t.ticket_id
+                WHERE a.id = ?
+                """, approvalId);
+        throw new AssertionError("approval did not reach " + expected
+                + "; current=" + status + "; diagnostic=" + diagnostic);
     }
 
     private long insertTenant(String code) {

@@ -2,14 +2,10 @@ package com.cc.opsagent.evaluation.infrastructure;
 
 import com.cc.opsagent.agent.application.AgentBudget;
 import com.cc.opsagent.agent.application.AgentExecutionAudit;
-import com.cc.opsagent.agent.application.AgentTaskService;
 import com.cc.opsagent.agent.application.AgentTaskCommand;
 import com.cc.opsagent.agent.application.CancellationProbe;
 import com.cc.opsagent.agent.application.DiagnosticToolGateway;
-import com.cc.opsagent.agent.application.OpsAgentWorkflow;
 import com.cc.opsagent.agent.application.TaskOutcome;
-import com.cc.opsagent.agent.domain.AgentStep;
-import com.cc.opsagent.agent.domain.AgentTask;
 import com.cc.opsagent.agent.graph.OpsAgentGraphFactory;
 import com.cc.opsagent.agent.graph.node.DecisionNode;
 import com.cc.opsagent.agent.graph.node.DiagnoseNode;
@@ -26,6 +22,7 @@ import com.cc.opsagent.evaluation.domain.EvaluationMode;
 import com.cc.opsagent.evaluation.domain.EvaluationObservation;
 import com.cc.opsagent.identity.security.TenantContext;
 import com.cc.opsagent.knowledge.application.EvidenceChunk;
+import com.cc.opsagent.knowledge.application.KnowledgeRetriever;
 import com.cc.opsagent.model.ModelGateway;
 import com.cc.opsagent.model.ModelReply;
 import com.cc.opsagent.model.ModelRequest;
@@ -33,12 +30,10 @@ import com.cc.opsagent.model.ModelUsage;
 import com.cc.opsagent.security.SensitiveDataRedactor;
 import com.cc.opsagent.simulator.domain.OpsScenario;
 import com.cc.opsagent.simulator.infrastructure.ScenarioCatalog;
-import com.cc.opsagent.ticket.application.CreateTicketCommand;
-import com.cc.opsagent.ticket.application.TicketService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -56,11 +51,10 @@ import reactor.core.publisher.Flux;
 public class ProductionEvaluationWorkflow implements EvaluationWorkflowPort {
 
     private final ScenarioCatalog scenarios;
-    private final TicketService tickets;
-    private final AgentTaskService tasks;
-    private final ObjectProvider<OpsAgentWorkflow> liveWorkflow;
     private final DiagnosticToolGateway diagnosticTools;
     private final SensitiveDataRedactor redactor;
+    private final ModelGateway productionModel;
+    private final ObjectProvider<KnowledgeRetriever> knowledge;
     private final com.cc.opsagent.model.ModelProvider liveProvider;
     private final String qwenModel;
     private final String deepSeekModel;
@@ -68,21 +62,19 @@ public class ProductionEvaluationWorkflow implements EvaluationWorkflowPort {
 
     public ProductionEvaluationWorkflow(
             ScenarioCatalog scenarios,
-            TicketService tickets,
-            AgentTaskService tasks,
-            ObjectProvider<OpsAgentWorkflow> liveWorkflow,
             DiagnosticToolGateway diagnosticTools,
             SensitiveDataRedactor redactor,
+            ModelGateway productionModel,
+            ObjectProvider<KnowledgeRetriever> knowledge,
             @Value("${app.agent.provider:QWEN}")
             com.cc.opsagent.model.ModelProvider liveProvider,
             @Value("${app.ai.qwen.model:qwen-plus}") String qwenModel,
             @Value("${app.ai.deepseek.model:deepseek-chat}") String deepSeekModel) {
         this.scenarios = scenarios;
-        this.tickets = tickets;
-        this.tasks = tasks;
-        this.liveWorkflow = liveWorkflow;
         this.diagnosticTools = diagnosticTools;
         this.redactor = redactor;
+        this.productionModel = productionModel;
+        this.knowledge = knowledge;
         this.liveProvider = liveProvider;
         this.qwenModel = qwenModel;
         this.deepSeekModel = deepSeekModel;
@@ -91,12 +83,7 @@ public class ProductionEvaluationWorkflow implements EvaluationWorkflowPort {
     @Override
     public EvaluationRunRequest prepare(EvaluationRunRequest request) {
         if (request.mode() == EvaluationMode.MOCK) return request;
-        if (request.provider() != liveProvider) {
-            throw new IllegalArgumentException(
-                    "LIVE evaluation provider must match app.agent.provider="
-                            + liveProvider);
-        }
-        String configuredModel = liveProvider
+        String configuredModel = request.provider()
                 == com.cc.opsagent.model.ModelProvider.QWEN
                 ? qwenModel : deepSeekModel;
         if (!"provider-default".equals(request.model())
@@ -193,29 +180,31 @@ public class ProductionEvaluationWorkflow implements EvaluationWorkflowPort {
     private EvaluationObservation live(
             EvaluationCase evaluationCase,
             EvaluationRunRequest request) {
-        OpsAgentWorkflow workflow = liveWorkflow.getIfAvailable();
-        if (workflow == null) {
-            throw new IllegalStateException(
-                    "LIVE evaluation requires vector datasource and agent workflow");
-        }
         OpsScenario scenario = scenarios.require(evaluationCase.scenarioKey());
         Instant started = Instant.now();
-        var ticket = tickets.create(new CreateTicketCommand(
-                evaluationCase.title(), evaluationCase.description(),
-                scenario.service(), scenario.category(), evaluationCase.scenarioKey(),
-                scenario.severity()));
-        AgentTask task = tasks.start(ticket.id(), new AgentBudget(
-                12, Duration.ofMinutes(3), 20_000));
-        TaskOutcome outcome = workflow.run(task.id());
-        AgentTask completed = tasks.get(task.id());
-        List<AgentStep> steps = tasks.steps(task.id());
-        String category = steps.stream()
-                .filter(step -> "triage".equals(step.nodeName()))
-                .map(AgentStep::output)
-                .map(output -> output.get("category"))
-                .filter(Objects::nonNull)
-                .map(String::valueOf)
-                .findFirst().orElse(null);
+        TrackingModelGateway model = new TrackingModelGateway(productionModel);
+        KnowledgeRetriever retriever = knowledge.getIfAvailable();
+        if (retriever == null) {
+            throw new IllegalStateException(
+                    "LIVE evaluation requires the pgvector knowledge datasource");
+        }
+        EvaluationAudit audit = new EvaluationAudit();
+        CancellationProbe cancellation = CancellationProbe.never();
+        var engine = new AlibabaGraphWorkflowEngine(new OpsAgentGraphFactory(
+                new TriageNode(model, audit, cancellation, redactor),
+                new RetrieveNode(retriever, cancellation),
+                new PlanNode(model, audit, cancellation, redactor),
+                new DiagnoseNode(diagnosticTools, audit, cancellation),
+                new DecisionNode(model, audit, cancellation, redactor),
+                new VerifyNode(), new SummarizeNode(), audit, cancellation));
+        long tenantId = TenantContext.requireTenantId();
+        long syntheticId = Integer.toUnsignedLong(
+                (evaluationCase.id() + request.provider()).hashCode()) + 1;
+        TaskOutcome outcome = engine.execute(new AgentTaskCommand(
+                syntheticId, tenantId, syntheticId, evaluationCase.scenarioKey(),
+                scenario.service(), evaluationCase.title(), evaluationCase.description(),
+                request.provider(), new AgentBudget(
+                        12, Duration.ofMinutes(3), 20_000)));
         Instant finished = Instant.now();
         String raw = json(Map.of(
                 "status", outcome.status().name(),
@@ -226,13 +215,41 @@ public class ProductionEvaluationWorkflow implements EvaluationWorkflowPort {
                 outcome.rootCause(), outcome.proposedAction(), outcome.report(),
                 outcome.errorSummary(), raw));
         return new EvaluationObservation(
-                category, outcome.rootCause(), outcome.toolNames(), outcome.citations(),
+                audit.category, outcome.rootCause(), outcome.toolNames(), outcome.citations(),
                 outcome.proposedAction(), outcome.actionArguments(), outcome.status(),
-                completed.stepsUsed(), completed.tokensUsed(),
+                audit.steps, model.tokens,
                 Math.max(0, Duration.between(started, finished).toMillis()),
                 leakage, request.provider(), request.model(), raw,
                 outcome.errorSummary() == null ? null : "WORKFLOW_FAILURE",
                 started, finished);
+    }
+
+    private static final class TrackingModelGateway implements ModelGateway {
+        private final ModelGateway delegate;
+        private int tokens;
+        private TrackingModelGateway(ModelGateway delegate) { this.delegate = delegate; }
+        @Override
+        public ModelReply call(com.cc.opsagent.model.ModelProvider provider, ModelRequest request) {
+            ModelReply reply = delegate.call(provider, request);
+            if (reply.usage() != null) tokens += reply.usage().totalTokens();
+            return reply;
+        }
+        @Override
+        public Flux<String> stream(com.cc.opsagent.model.ModelProvider provider, ModelRequest request) {
+            return delegate.stream(provider, request);
+        }
+    }
+
+    private static final class EvaluationAudit implements AgentExecutionAudit {
+        private String category;
+        private int steps;
+        @Override
+        public void nodeCompleted(NodeAudit audit) {
+            steps = Math.max(steps, audit.sequence());
+            if ("triage".equals(audit.nodeName()) && audit.output().get("category") != null) {
+                category = String.valueOf(audit.output().get("category"));
+            }
+        }
     }
 
     private int leakageCount(

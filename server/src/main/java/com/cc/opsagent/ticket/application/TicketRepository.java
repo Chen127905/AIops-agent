@@ -24,4 +24,11 @@ public interface TicketRepository {
             long ticketId,
             TicketStatus expectedStatus,
             TicketStatus targetStatus);
+
+    int transitionStatusWithResolution(
+            long tenantId,
+            long ticketId,
+            TicketStatus expectedStatus,
+            TicketStatus targetStatus,
+            String resolutionSummary);
 }

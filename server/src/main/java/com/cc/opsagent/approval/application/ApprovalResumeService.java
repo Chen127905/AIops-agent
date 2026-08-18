@@ -17,6 +17,8 @@ import com.cc.opsagent.tool.domain.ToolExecutionStatus;
 import com.cc.opsagent.tool.domain.ToolInvocationRequest;
 import com.cc.opsagent.tool.domain.ToolResult;
 import com.cc.opsagent.tool.domain.ToolRisk;
+import com.cc.opsagent.ticket.application.TicketService;
+import com.cc.opsagent.ticket.domain.TicketStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
@@ -30,18 +32,21 @@ public class ApprovalResumeService {
     private final AgentEventService eventService;
     private final ToolPolicyService policy;
     private final OpsToolFacade tools;
+    private final TicketService tickets;
 
     public ApprovalResumeService(
             ApprovalRepository repository,
             AgentTaskService taskService,
             AgentEventService eventService,
             ToolPolicyService policy,
-            OpsToolFacade tools) {
+            OpsToolFacade tools,
+            TicketService tickets) {
         this.repository = repository;
         this.taskService = taskService;
         this.eventService = eventService;
         this.policy = policy;
         this.tools = tools;
+        this.tickets = tickets;
     }
 
     public void resume(ResumeCommand command) {
@@ -69,6 +74,9 @@ public class ApprovalResumeService {
                 fail(command, "task is no longer waiting for approval");
                 return;
             }
+            tickets.transition(
+                    taskService.get(command.taskId()).ticketId(),
+                    TicketStatus.EXECUTING);
             eventService.append(command.taskId(), "APPROVAL_EXECUTION_STARTED", Map.of(
                     "approvalId", command.approvalId(),
                     "tool", command.toolName()));
@@ -79,6 +87,8 @@ public class ApprovalResumeService {
                     command.idempotencyKey(), elapsed(started),
                     resultSummary(result), result.message()));
             if (result.status() == ToolExecutionStatus.SUCCESS) {
+                long ticketId = taskService.get(command.taskId()).ticketId();
+                tickets.transition(ticketId, TicketStatus.VERIFYING);
                 if (!verifyRecovery(command)) {
                     failRunning(command,
                             "post-action verification did not confirm service recovery");
@@ -90,6 +100,9 @@ public class ApprovalResumeService {
                     throw new IllegalStateException(
                             "task state changed before approved execution completed");
                 }
+                tickets.resolve(ticketId,
+                        "Approved %s completed and post-action health verification passed."
+                                .formatted(command.toolName()));
                 eventService.append(command.taskId(), "APPROVAL_EXECUTION_COMPLETED", Map.of(
                         "approvalId", command.approvalId(),
                         "status", "SUCCEEDED"));
@@ -187,6 +200,7 @@ public class ApprovalResumeService {
                 command.taskId(), AgentTaskStatus.WAITING_APPROVAL,
                 AgentTaskStatus.MANUAL_REQUIRED);
         taskService.recordErrorSummary(command.taskId(), safe);
+        failTicket(command.taskId());
         repository.finishExecution(
                 command.tenantId(), command.approvalId(),
                 ApprovalStatus.FAILED, safe);
@@ -208,12 +222,21 @@ public class ApprovalResumeService {
                     AgentTaskStatus.MANUAL_REQUIRED);
         }
         taskService.recordErrorSummary(command.taskId(), safe);
+        failTicket(command.taskId());
         repository.finishExecution(
                 command.tenantId(), command.approvalId(),
                 ApprovalStatus.FAILED, safe);
         eventService.append(command.taskId(), "APPROVAL_EXECUTION_FAILED", Map.of(
                 "approvalId", command.approvalId(),
                 "error", safe));
+    }
+
+    private void failTicket(long taskId) {
+        long ticketId = taskService.get(taskId).ticketId();
+        var ticket = tickets.get(ticketId);
+        if (!ticket.status().isTerminal()) {
+            tickets.transition(ticketId, TicketStatus.FAILED);
+        }
     }
 
     private String safeError(String value) {

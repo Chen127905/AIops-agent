@@ -49,4 +49,16 @@ public class MyBatisTicketRepository implements TicketRepository {
         return ticketMapper.transitionStatus(
                 tenantId, ticketId, expectedStatus, targetStatus);
     }
+
+    @Override
+    public int transitionStatusWithResolution(
+            long tenantId,
+            long ticketId,
+            TicketStatus expectedStatus,
+            TicketStatus targetStatus,
+            String resolutionSummary) {
+        return ticketMapper.transitionStatusWithResolution(
+                tenantId, ticketId, expectedStatus, targetStatus,
+                resolutionSummary);
+    }
 }

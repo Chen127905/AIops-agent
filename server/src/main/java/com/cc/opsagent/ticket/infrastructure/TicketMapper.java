@@ -70,4 +70,20 @@ interface TicketMapper extends BaseMapper<Ticket> {
             @Param("ticketId") long ticketId,
             @Param("expectedStatus") TicketStatus expectedStatus,
             @Param("targetStatus") TicketStatus targetStatus);
+
+    @Update("""
+            UPDATE ticket
+            SET status = #{targetStatus},
+                resolution_summary = #{resolutionSummary},
+                updated_at = CURRENT_TIMESTAMP(6)
+            WHERE tenant_id = #{tenantId}
+              AND id = #{ticketId}
+              AND status = #{expectedStatus}
+            """)
+    int transitionStatusWithResolution(
+            @Param("tenantId") long tenantId,
+            @Param("ticketId") long ticketId,
+            @Param("expectedStatus") TicketStatus expectedStatus,
+            @Param("targetStatus") TicketStatus targetStatus,
+            @Param("resolutionSummary") String resolutionSummary);
 }

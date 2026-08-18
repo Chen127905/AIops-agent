@@ -58,7 +58,7 @@ abstract class StructuredModelNode {
             Class<T> type) {
         ModelReply reply = call(state, prompt);
         try {
-            return objectMapper.readValue(reply.content(), type);
+            return objectMapper.readValue(jsonContent(reply.content()), type);
         } catch (JsonProcessingException firstFailure) {
             ModelReply repaired = call(state, """
                     Repair the following response into strict JSON only. Do not add prose.
@@ -67,12 +67,29 @@ abstract class StructuredModelNode {
                     %s
                     """.formatted(type.getSimpleName(), reply.content()));
             try {
-                return objectMapper.readValue(repaired.content(), type);
+                return objectMapper.readValue(jsonContent(repaired.content()), type);
             } catch (JsonProcessingException secondFailure) {
                 throw new IllegalArgumentException(
                         "model returned malformed structured output", secondFailure);
             }
         }
+    }
+
+    private String jsonContent(String content) {
+        String value = content == null ? "" : content.trim();
+        if (value.startsWith("```")) {
+            int firstLine = value.indexOf('\n');
+            int closing = value.lastIndexOf("```");
+            if (firstLine >= 0 && closing > firstLine) {
+                value = value.substring(firstLine + 1, closing).trim();
+            }
+        }
+        int objectStart = value.indexOf('{');
+        int objectEnd = value.lastIndexOf('}');
+        if (objectStart >= 0 && objectEnd > objectStart) {
+            return value.substring(objectStart, objectEnd + 1);
+        }
+        return value;
     }
 
     private ModelReply call(OpsAgentState state, String prompt) {

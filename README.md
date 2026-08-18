@@ -40,7 +40,21 @@ pwsh -File scripts/seed-knowledge.ps1
 
 初始化脚本会通过平台 API 发布五份有官方来源的运维手册，覆盖 Redis 超时、HikariCP 连接池耗尽、Spring Boot API 5xx、Kafka 消费积压和 Kubernetes 磁盘压力。不要在同一批已入库文档上切换 embedding 提供方；切换后应重新入库，避免混用不同向量空间。
 
-登录后在“工单与 Agent”选择故障场景。场景会自动带出服务、分类和严重级别；启动 Agent 后可查看七节点时间线。若模型建议 `restartService` 或 `changeConfig`，任务会进入人工审批，批准后平台执行模拟变更并再次检查健康状态，只有确认恢复才会成功结束。
+登录后可创建三类工单：已接入的真实服务、自定义知识诊断、内置故障沙箱。Agent 会输出诊断摘要、根因、处置步骤、验证标准、回滚方案和证据；高风险动作进入人工审批，批准后才会调用变更端点并再次检查健康状态。离开详情页不会丢失执行上下文，重新进入工单会自动恢复最近一次任务。
+
+## 接入真实业务系统
+
+在“业务系统接入”中按工单使用的服务唯一名注册应用。平台本身运行状态与业务系统状态已经分开展示。容器访问宿主机进程时，Base URL 使用 `http://host.docker.internal:端口`，容器间访问使用 Compose 服务名。
+
+最小接入只需一个兼容 Spring Boot Actuator 的健康端点：
+
+- 健康：`GET /actuator/health`，读取 `{ "status": "UP" }`。
+- 指标（可选）：路径支持 `{metric}` 占位符，兼容 Actuator `measurements[].value`。
+- 日志（可选）：返回 JSON 数组，或 `{ "logs": [...] }`；每项包含 `timestamp`、`level`、`message`。
+- 依赖（可选）：返回 `{ "dependencies": [{ "service": "mysql", "status": "UP" }] }`，也兼容 Actuator `components`。
+- 变更（可选）：人工审批后接收 `POST`，请求包含 `operation`、`service`、`parameters`、`taskId`，返回 `{ "success": true }`。未配置该端点时平台绝不会自动变更。
+
+需要 Bearer Token 时只在页面保存环境变量名，例如 `ORDER_SERVICE_TOKEN`，实际 Token 必须注入 server 容器，数据库不保存明文凭证。注册后先点击“连通测试”，再创建“已接入的真实服务”工单。
 
 ## 离线验证知识库
 
@@ -57,11 +71,12 @@ Smoke 会真实入库一份文档、执行 pgvector 检索并检查跨租户引�
 ## 核心能力
 
 - 多租户 JWT 身份、角色授权与服务端租户隔离
-- 五种确定性故障场景、五个只读工具和两个审批型写工具
-- 七节点 Agent Graph、结构化模型输出、RAG 引用和预算控制
+- 任意故障工单、真实 HTTP 业务服务接入、五种确定性演练场景
+- 四个只读诊断工具、两个审批型写工具，以及真实/沙箱数据源路由
+- 七节点 Agent Graph、面向处置结果的结构化输出、RAG 引用和预算控制
 - 单次消费审批、审批后健康复查、幂等恢复、取消、超时和 `MANUAL_REQUIRED` 安全终态
 - 可重放 SSE 时间线，浏览器按最后持久化序号断线续传
-- 30 条评测基线，MOCK 与 LIVE 复用同一生产工作流端口
+- 30 条评测基线，MOCK 与 LIVE 复用生产节点但与工单和审批队列隔离
 - 安全审计、敏感信息脱敏、低基数 Micrometer 指标与 Prometheus
 
 ## 模型配置
@@ -101,4 +116,4 @@ pwsh -File scripts/smoke.ps1
 
 ## 明确局限
 
-当前运维系统由进程内确定性模拟器替代真实 Prometheus、Loki、CMDB 和发布平台；部署目标是单机 Compose 而非 Kubernetes；未实现企业 SSO、密钥轮换和分布式追踪后端。上述内容不会在简历或演示中冒充已实现能力。
+当前已经支持通用 HTTP/Actuator 业务服务接入，但尚未提供 Prometheus、Loki、CMDB、Kubernetes 和发布平台的原生客户端；复杂企业环境可在现有 `OpsDataProvider` 端口上继续增加适配器。部署目标仍是单机 Compose，尚未实现企业 SSO、集中密钥轮换和分布式追踪后端。上述内容不会在简历或演示中冒充已实现能力。

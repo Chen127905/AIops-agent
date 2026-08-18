@@ -15,7 +15,7 @@ public class VerifyNode implements OpsAgentNode {
         if (HIGH_RISK.contains(state.proposedAction())) {
             state.verification(AgentTaskStatus.WAITING_APPROVAL);
         } else if ("NONE".equalsIgnoreCase(state.proposedAction())) {
-            state.verification(AgentTaskStatus.SUCCEEDED);
+            state.verification(AgentTaskStatus.MANUAL_REQUIRED);
         } else {
             state.verification(AgentTaskStatus.MANUAL_REQUIRED);
         }

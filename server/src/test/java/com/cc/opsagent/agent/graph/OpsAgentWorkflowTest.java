@@ -109,7 +109,7 @@ class OpsAgentWorkflowTest {
         TaskOutcome outcome = workflow(model, new RecordingTools(), 12)
                 .execute(command(12));
 
-        assertThat(outcome.status()).isEqualTo(AgentTaskStatus.SUCCEEDED);
+        assertThat(outcome.status()).isEqualTo(AgentTaskStatus.MANUAL_REQUIRED);
         assertThat(outcome.rootCause()).isEqualTo("pool_exhausted");
         assertThat(model.calls).isEqualTo(4);
     }
@@ -187,7 +187,7 @@ class OpsAgentWorkflowTest {
         TaskOutcome outcome = workflow(model, new RecordingTools(), audit)
                 .execute(command(12));
 
-        assertThat(outcome.status()).isEqualTo(AgentTaskStatus.SUCCEEDED);
+        assertThat(outcome.status()).isEqualTo(AgentTaskStatus.MANUAL_REQUIRED);
         assertThat(audit.started).containsExactly(
                 "triage", "retrieve", "plan", "diagnose",
                 "decision", "verify", "summarize");
@@ -244,7 +244,7 @@ class OpsAgentWorkflowTest {
 
         assertThat(outcome.status())
                 .withFailMessage("recovered outcome: %s", outcome)
-                .isEqualTo(AgentTaskStatus.SUCCEEDED);
+                .isEqualTo(AgentTaskStatus.MANUAL_REQUIRED);
         assertThat(audit.started).containsExactly(
                 "diagnose", "decision", "verify", "summarize");
         assertThat(model.calls).isEqualTo(1);

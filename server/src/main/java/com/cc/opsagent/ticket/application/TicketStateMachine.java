@@ -17,18 +17,20 @@ public final class TicketStateMachine {
             TicketStatus.TIMEOUT,
             TicketStatus.MANUAL_REQUIRED);
 
-    private static final Map<TicketStatus, TicketStatus> NORMAL_TRANSITIONS = Map.of(
-            TicketStatus.OPEN, TicketStatus.TRIAGING,
-            TicketStatus.TRIAGING, TicketStatus.DIAGNOSING,
-            TicketStatus.DIAGNOSING, TicketStatus.WAITING_APPROVAL,
-            TicketStatus.WAITING_APPROVAL, TicketStatus.EXECUTING,
-            TicketStatus.EXECUTING, TicketStatus.VERIFYING,
-            TicketStatus.VERIFYING, TicketStatus.RESOLVED);
+    private static final Map<TicketStatus, Set<TicketStatus>> NORMAL_TRANSITIONS = Map.of(
+            TicketStatus.OPEN, Set.of(TicketStatus.TRIAGING),
+            TicketStatus.TRIAGING, Set.of(TicketStatus.DIAGNOSING),
+            TicketStatus.DIAGNOSING, Set.of(
+                    TicketStatus.WAITING_APPROVAL, TicketStatus.VERIFYING),
+            TicketStatus.WAITING_APPROVAL, Set.of(TicketStatus.EXECUTING),
+            TicketStatus.EXECUTING, Set.of(TicketStatus.VERIFYING),
+            TicketStatus.VERIFYING, Set.of(TicketStatus.RESOLVED));
 
     public boolean canTransition(TicketStatus from, TicketStatus to) {
         if (from == null || to == null || from == to || from.isTerminal()) {
             return false;
         }
-        return NORMAL_TRANSITIONS.get(from) == to || EXCEPTIONAL_TERMINALS.contains(to);
+        return NORMAL_TRANSITIONS.getOrDefault(from, Set.of()).contains(to)
+                || EXCEPTIONAL_TERMINALS.contains(to);
     }
 }

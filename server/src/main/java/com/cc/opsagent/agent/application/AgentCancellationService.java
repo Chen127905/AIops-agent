@@ -8,6 +8,8 @@ import com.cc.opsagent.approval.infrastructure.ApprovalRepository;
 import com.cc.opsagent.identity.security.TenantContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.cc.opsagent.ticket.application.TicketService;
+import com.cc.opsagent.ticket.domain.TicketStatus;
 
 import java.util.Map;
 
@@ -18,16 +20,19 @@ public class AgentCancellationService implements CancellationProbe {
     private final AgentEventService events;
     private final ApprovalRepository approvals;
     private final SecurityAuditPort audit;
+    private final TicketService tickets;
 
     public AgentCancellationService(
             AgentTaskService tasks,
             AgentEventService events,
             ApprovalRepository approvals,
-            SecurityAuditPort audit) {
+            SecurityAuditPort audit,
+            TicketService tickets) {
         this.tasks = tasks;
         this.events = events;
         this.approvals = approvals;
         this.audit = audit;
+        this.tickets = tickets;
     }
 
     @Transactional
@@ -53,6 +58,10 @@ public class AgentCancellationService implements CancellationProbe {
             }
             if (tasks.transition(
                     taskId, task.status(), AgentTaskStatus.CANCELLED)) {
+                var ticket = tickets.get(task.ticketId());
+                if (!ticket.status().isTerminal()) {
+                    tickets.transition(task.ticketId(), TicketStatus.CANCELLED);
+                }
                 events.append(taskId, "TASK_COMPLETED", Map.of(
                         "status", AgentTaskStatus.CANCELLED.name()));
             }

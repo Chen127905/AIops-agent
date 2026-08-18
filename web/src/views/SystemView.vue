@@ -35,7 +35,7 @@ onMounted(() => void load())
 </script>
 
 <template><ConsoleLayout>
-  <header class="console-header"><div><p class="section-label">可观测性</p><h2>系统状态</h2><p class="header-copy">查看应用健康、基础组件与关键 JVM 指标。</p></div><button class="secondary-action" :disabled="loading" @click="load">{{ loading ? '刷新中…' : '刷新状态' }}</button></header>
+  <header class="console-header"><div><p class="section-label">平台自身可观测性</p><h2>平台运行状态</h2><p class="header-copy">这里只展示智能运维平台自身及其 MySQL、Redis、PostgreSQL 等基础组件，不代表用户业务系统。</p></div><button class="secondary-action" :disabled="loading" @click="load">{{ loading ? '刷新中…' : '刷新状态' }}</button></header>
   <p v-if="error" class="error-message">{{ error }}</p>
   <section class="health-hero surface-panel"><div><p class="section-label">应用健康</p><h3>{{ displayLabel(health?.status) }}</h3><p>Spring Boot Actuator 实时检查结果</p></div><span class="health-orb" :data-status="health?.status" /></section>
   <div class="metric-grid">

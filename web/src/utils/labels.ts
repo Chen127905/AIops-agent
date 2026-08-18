@@ -1,6 +1,6 @@
 const labels: Record<string, string> = {
-  OPEN: '待处理', IN_PROGRESS: '处理中', RESOLVED: '已解决', CANCELLED: '已取消',
-  QUEUED: '等待执行', RUNNING: '执行中', WAITING_APPROVAL: '等待审批', SUCCEEDED: '执行成功', FAILED: '执行失败',
+  OPEN: '待处理', TRIAGING: '分诊中', DIAGNOSING: '诊断中', EXECUTING: '执行处置中', VERIFYING: '验证恢复中', RESOLVED: '已解决', CANCELLED: '已取消', TIMEOUT: '执行超时', MANUAL_REQUIRED: '需要人工处理',
+  QUEUED: '等待执行', RUNNING: '执行中', WAITING_APPROVAL: '等待审批', SUCCEEDED: '执行成功', FAILED: '执行失败', TIMED_OUT: '执行超时',
   PENDING: '待审批', APPROVED: '已批准', REJECTED: '已拒绝', EXPIRED: '已过期',
   LOW: '低', MEDIUM: '中', HIGH: '高', CRITICAL: '紧急',
   CACHE: '缓存', DATABASE: '数据库', APPLICATION: '应用服务', MESSAGING: '消息队列',
@@ -15,6 +15,8 @@ const labels: Record<string, string> = {
   APPROVAL_REQUESTED: '已提交人工审批', APPROVAL_GRANTED: '人工审批通过', APPROVAL_APPROVED: '人工审批通过', APPROVAL_REJECTED: '人工审批拒绝',
   APPROVAL_EXECUTION_STARTED: '审批动作开始执行', APPROVAL_EXECUTION_COMPLETED: '审批动作执行完成', APPROVAL_EXECUTION_FAILED: '审批动作执行失败', POST_ACTION_VERIFIED: '恢复效果验证完成',
   FINAL_ANSWER_CREATED: '已生成处置结论',
+  NONE: '不执行自动变更', restartService: '重启目标服务', changeConfig: '修改服务配置',
+  APPLICATION_INCIDENT: '应用故障', NETWORK_ERROR: '网络异常',
 }
 
 export function displayLabel(value: string | null | undefined): string {

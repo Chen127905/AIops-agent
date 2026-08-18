@@ -6,6 +6,7 @@ import com.cc.opsagent.model.ModelProvider;
 import com.cc.opsagent.approval.application.ApprovalRequestCreator;
 import com.cc.opsagent.ticket.application.TicketService;
 import com.cc.opsagent.ticket.web.TicketResponse;
+import com.cc.opsagent.ticket.domain.TicketStatus;
 import com.cc.opsagent.observability.AgentMetrics;
 
 import java.time.Duration;
@@ -91,6 +92,10 @@ public class OpsAgentWorkflow {
     }
 
     public TaskOutcome run(long taskId) {
+        return run(taskId, provider);
+    }
+
+    public TaskOutcome run(long taskId, ModelProvider selectedProvider) {
         AgentTask task = taskService.get(taskId);
         if (task.status() != AgentTaskStatus.QUEUED
                 && task.status() != AgentTaskStatus.RUNNING) {
@@ -100,7 +105,8 @@ public class OpsAgentWorkflow {
         if (!taskService.claim(taskId, workerId, lease)) {
             throw new IllegalStateException("agent task lease could not be claimed");
         }
-        return executeClaimed(taskService.get(taskId), null, false);
+        return executeClaimed(taskService.get(taskId), null, false,
+                selectedProvider == null ? provider : selectedProvider);
     }
 
     public TaskOutcome resumeClaimed(
@@ -111,13 +117,14 @@ public class OpsAgentWorkflow {
             throw new IllegalStateException(
                     "recovered agent task is not running");
         }
-        return executeClaimed(task, checkpoint, true);
+        return executeClaimed(task, checkpoint, true, provider);
     }
 
     private TaskOutcome executeClaimed(
             AgentTask task,
             RecoveryCheckpoint checkpoint,
-            boolean recovered) {
+            boolean recovered,
+            ModelProvider selectedProvider) {
         long taskId = task.id();
         long executionStarted = System.nanoTime();
         TaskOutcome outcome;
@@ -134,12 +141,16 @@ public class OpsAgentWorkflow {
                                     "afterSequence", checkpoint == null
                                             ? 0 : checkpoint.completedSequence()));
             TicketResponse ticket = ticketService.get(task.ticketId());
+            if (!recovered && ticket.status() == TicketStatus.TRIAGING) {
+                ticket = ticketService.transition(
+                        ticket.id(), TicketStatus.DIAGNOSING);
+            }
             if (deadlineExceeded(task)) {
                 outcome = new TaskOutcome(
                         AgentTaskStatus.TIMED_OUT, null, List.of(), List.of(),
                         null, null, "agent timeout budget exceeded");
             } else {
-                AgentTaskCommand command = command(task, ticket);
+                AgentTaskCommand command = command(task, ticket, selectedProvider);
                 outcome = checkpoint == null
                         ? engine.execute(command)
                         : engine.resume(command, checkpoint);
@@ -160,6 +171,7 @@ public class OpsAgentWorkflow {
         if (outcome.status() == AgentTaskStatus.WAITING_APPROVAL) {
             outcome = createApprovalOrRequireManual(task, outcome);
         }
+        synchronizeTicket(task.ticketId(), outcome);
         String eventType = outcome.status() == AgentTaskStatus.WAITING_APPROVAL
                 ? "TASK_SUSPENDED" : "TASK_COMPLETED";
         eventService.append(taskId, eventType, Map.of(
@@ -205,7 +217,10 @@ public class OpsAgentWorkflow {
         }
     }
 
-    private AgentTaskCommand command(AgentTask task, TicketResponse ticket) {
+    private AgentTaskCommand command(
+            AgentTask task,
+            TicketResponse ticket,
+            ModelProvider selectedProvider) {
         String scenarioKey = scenarioKey(ticket);
         return new AgentTaskCommand(
                 task.id(), task.tenantId(), task.ticketId(),
@@ -213,10 +228,39 @@ public class OpsAgentWorkflow {
                 requireText("affected service", ticket.affectedService()),
                 requireText("ticket title", ticket.title()),
                 requireText("ticket description", ticket.description()),
-                provider,
+                selectedProvider,
                 new AgentBudget(
                         task.maxSteps(), remainingTimeout(task),
                         task.maxTokens()));
+    }
+
+    private void synchronizeTicket(long ticketId, TaskOutcome outcome) {
+        TicketResponse ticket = ticketService.get(ticketId);
+        if (ticket.status().isTerminal()) return;
+        switch (outcome.status()) {
+            case WAITING_APPROVAL -> ticketService.transition(
+                    ticketId, TicketStatus.WAITING_APPROVAL);
+            case SUCCEEDED -> {
+                if (ticket.status() == TicketStatus.DIAGNOSING) {
+                    ticketService.transition(ticketId, TicketStatus.VERIFYING);
+                }
+                ticketService.resolve(ticketId, resultSummary(outcome));
+            }
+            case FAILED -> ticketService.transition(ticketId, TicketStatus.FAILED);
+            case CANCELLED -> ticketService.transition(ticketId, TicketStatus.CANCELLED);
+            case TIMED_OUT -> ticketService.transition(ticketId, TicketStatus.TIMEOUT);
+            case MANUAL_REQUIRED -> ticketService.transition(
+                    ticketId, TicketStatus.MANUAL_REQUIRED);
+            default -> { }
+        }
+    }
+
+    private String resultSummary(TaskOutcome outcome) {
+        if (outcome.report() != null && !outcome.report().isBlank()) {
+            return outcome.report();
+        }
+        return "Root cause: %s. Proposed action: %s."
+                .formatted(outcome.rootCause(), outcome.proposedAction());
     }
 
     private Duration remainingTimeout(AgentTask task) {
@@ -252,7 +296,8 @@ public class OpsAgentWorkflow {
     private String scenarioKey(TicketResponse ticket) {
         String value = ticket.scenarioKey();
         if (value == null || value.isBlank()) {
-            value = requireText("ticket scenario key", ticket.category());
+            value = "managed:" + requireText(
+                    "affected service", ticket.affectedService());
         }
         return value.trim().toLowerCase(Locale.ROOT).replace('_', '-');
     }

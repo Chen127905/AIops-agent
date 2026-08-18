@@ -64,6 +64,10 @@ public class ScenarioCatalog {
         return scenario;
     }
 
+    public boolean contains(String scenarioKey) {
+        return scenarioKey != null && scenarios.containsKey(scenarioKey);
+    }
+
     private static List<String> loadClasspathYaml() {
         try {
             Resource[] resources = new PathMatchingResourcePatternResolver()

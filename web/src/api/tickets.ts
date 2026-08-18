@@ -1,7 +1,7 @@
 import { api, AUTH_UNAUTHORIZED_EVENT, TOKEN_STORAGE_KEY } from './http'
 
-export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CANCELLED'
-export type TicketSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+export type TicketStatus = 'OPEN' | 'TRIAGING' | 'DIAGNOSING' | 'WAITING_APPROVAL' | 'EXECUTING' | 'VERIFYING' | 'RESOLVED' | 'FAILED' | 'CANCELLED' | 'TIMEOUT' | 'MANUAL_REQUIRED'
+export type TicketSeverity = 'UNKNOWN' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 
 export interface Ticket {
   id: number
@@ -72,6 +72,28 @@ export interface AgentEvent {
   createdAt: string
 }
 
+export interface AgentTaskResult {
+  taskId: number
+  ticketId: number
+  status: string
+  category: string | null
+  urgency: string | null
+  rootCause: string | null
+  proposedAction: string | null
+  diagnosisSummary: string | null
+  actionArguments: Record<string, unknown>
+  confidence: number
+  report: string | null
+  citations: string[]
+  plannedTools: string[]
+  evidence: Record<string, unknown>[]
+  observations: Record<string, unknown>[]
+  remediationSteps: string[]
+  verificationSteps: string[]
+  rollbackPlan: string | null
+  errorSummary: string | null
+}
+
 export async function listTickets(params: {
   status?: TicketStatus
   page?: number
@@ -98,6 +120,15 @@ export async function startAgentTask(ticketId: number): Promise<AgentTask> {
 
 export async function getAgentTask(taskId: number): Promise<AgentTask> {
   return (await api.get<AgentTask>(`/api/agent-tasks/${taskId}`)).data
+}
+
+export async function getLatestAgentTask(ticketId: number): Promise<AgentTask | null> {
+  const response = await api.get<AgentTask>(`/api/tickets/${ticketId}/agent-tasks/latest`)
+  return response.status === 204 ? null : response.data
+}
+
+export async function getAgentTaskResult(taskId: number): Promise<AgentTaskResult> {
+  return (await api.get<AgentTaskResult>(`/api/agent-tasks/${taskId}/result`)).data
 }
 
 export async function cancelAgentTask(taskId: number): Promise<AgentTask> {

@@ -27,6 +27,10 @@ public final class OpsAgentState {
     private final List<ToolObservation> observations = new ArrayList<>();
     private String rootCause;
     private String proposedAction;
+    private String diagnosisSummary;
+    private List<String> remediationSteps = List.of();
+    private List<String> verificationSteps = List.of();
+    private String rollbackPlan;
     private Map<String, Object> actionArguments = Map.of();
     private double confidence;
     private AgentTaskStatus status = AgentTaskStatus.RUNNING;
@@ -157,6 +161,10 @@ public final class OpsAgentState {
         }
         if (rootCause != null) snapshot.put("rootCause", rootCause);
         if (proposedAction != null) snapshot.put("proposedAction", proposedAction);
+        if (diagnosisSummary != null) snapshot.put("diagnosisSummary", diagnosisSummary);
+        if (!remediationSteps.isEmpty()) snapshot.put("remediationSteps", remediationSteps);
+        if (!verificationSteps.isEmpty()) snapshot.put("verificationSteps", verificationSteps);
+        if (rollbackPlan != null) snapshot.put("rollbackPlan", rollbackPlan);
         if (!actionArguments.isEmpty()) snapshot.put("actionArguments", actionArguments);
         if (report != null) snapshot.put("report", report);
         return Map.copyOf(snapshot);
@@ -195,11 +203,30 @@ public final class OpsAgentState {
             String action,
             Map<String, Object> arguments,
             double score) {
+        decision(cause, null, action, arguments, score, List.of(), List.of(), null);
+    }
+    public void decision(
+            String cause,
+            String summary,
+            String action,
+            Map<String, Object> arguments,
+            double score,
+            List<String> remediation,
+            List<String> verification,
+            String rollback) {
         rootCause = cause;
+        diagnosisSummary = summary;
         proposedAction = action;
         actionArguments = arguments == null ? Map.of() : Map.copyOf(arguments);
         confidence = score;
+        remediationSteps = remediation == null ? List.of() : List.copyOf(remediation);
+        verificationSteps = verification == null ? List.of() : List.copyOf(verification);
+        rollbackPlan = rollback;
     }
+    public String diagnosisSummary() { return diagnosisSummary; }
+    public List<String> remediationSteps() { return remediationSteps; }
+    public List<String> verificationSteps() { return verificationSteps; }
+    public String rollbackPlan() { return rollbackPlan; }
     public AgentTaskStatus status() { return status; }
     public void status(AgentTaskStatus value) { status = value; }
     public void verification(AgentTaskStatus value) { verifiedStatus = value; }
@@ -220,6 +247,10 @@ public final class OpsAgentState {
         plannedTools = strings(snapshot.get("plannedTools"));
         rootCause = text(snapshot.get("rootCause"));
         proposedAction = text(snapshot.get("proposedAction"));
+        diagnosisSummary = text(snapshot.get("diagnosisSummary"));
+        remediationSteps = strings(snapshot.get("remediationSteps"));
+        verificationSteps = strings(snapshot.get("verificationSteps"));
+        rollbackPlan = text(snapshot.get("rollbackPlan"));
         actionArguments = objectMap(snapshot.get("actionArguments"));
         confidence = decimal(snapshot.get("confidence"), 0);
         report = text(snapshot.get("report"));

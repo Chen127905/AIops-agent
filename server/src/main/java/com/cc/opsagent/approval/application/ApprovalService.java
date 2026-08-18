@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import com.cc.opsagent.ticket.application.TicketService;
+import com.cc.opsagent.ticket.domain.TicketStatus;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -34,6 +36,7 @@ public class ApprovalService implements ApprovalRequestCreator {
     private final ApprovalResumeHandler resumeHandler;
     private final SecurityAuditPort audit;
     private final AgentMetrics metrics;
+    private final TicketService tickets;
 
     public ApprovalService(
             ApprovalRepository repository,
@@ -41,13 +44,15 @@ public class ApprovalService implements ApprovalRequestCreator {
             AgentEventService eventService,
             ApprovalResumeHandler resumeHandler,
             SecurityAuditPort audit,
-            AgentMetrics metrics) {
+            AgentMetrics metrics,
+            TicketService tickets) {
         this.repository = repository;
         this.taskService = taskService;
         this.eventService = eventService;
         this.resumeHandler = resumeHandler;
         this.audit = audit;
         this.metrics = metrics;
+        this.tickets = tickets;
     }
 
     @Transactional
@@ -124,6 +129,8 @@ public class ApprovalService implements ApprovalRequestCreator {
                 AgentTaskStatus.MANUAL_REQUIRED)) {
             throw new IllegalStateException("rejected task state changed concurrently");
         }
+        tickets.transition(taskService.get(approval.taskId()).ticketId(),
+                TicketStatus.MANUAL_REQUIRED);
         eventService.append(approval.taskId(), "APPROVAL_REJECTED", Map.of(
                 "approvalId", approvalId,
                 "decidedBy", principal.userId()));

@@ -63,6 +63,18 @@ public class AgentTaskService {
         return requireTask(TenantContext.requireTenantId(), taskId);
     }
 
+    public AgentTask latestForTicket(long ticketId) {
+        if (ticketId <= 0) {
+            throw new IllegalArgumentException("ticketId must be positive");
+        }
+        long tenantId = TenantContext.requireTenantId();
+        if (!repository.ticketExists(tenantId, ticketId)) {
+            throw new IllegalArgumentException(
+                    "ticket was not found for the authenticated tenant");
+        }
+        return repository.findLatestByTicket(tenantId, ticketId);
+    }
+
     public boolean claim(long taskId, String workerId, Duration lease) {
         validateLease(workerId, lease);
         Instant now = Instant.now();

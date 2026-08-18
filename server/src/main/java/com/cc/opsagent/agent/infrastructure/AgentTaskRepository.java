@@ -87,6 +87,21 @@ public class AgentTaskRepository {
         return tasks.isEmpty() ? null : tasks.getFirst();
     }
 
+    public AgentTask findLatestByTicket(long tenantId, long ticketId) {
+        List<AgentTask> tasks = jdbcTemplate.query("""
+                SELECT id, tenant_id, ticket_id, requested_by, status,
+                       max_steps, timeout_seconds, max_tokens,
+                       steps_used, tokens_used, worker_id, lease_until,
+                       error_summary, cancel_requested_at, recovery_count,
+                       created_at, started_at, finished_at
+                FROM agent_task
+                WHERE tenant_id = ? AND ticket_id = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """, (resultSet, rowNumber) -> mapTask(resultSet), tenantId, ticketId);
+        return tasks.isEmpty() ? null : tasks.getFirst();
+    }
+
     public int claim(
             long tenantId,
             long taskId,

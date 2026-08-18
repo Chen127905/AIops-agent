@@ -91,6 +91,27 @@ public class TicketService {
         return TicketResponse.from(requireTicket(tenantId, id));
     }
 
+    @Transactional
+    public TicketResponse resolve(long id, String resolutionSummary) {
+        if (resolutionSummary == null || resolutionSummary.isBlank()) {
+            throw new IllegalArgumentException("resolution summary is required");
+        }
+        long tenantId = TenantContext.requireTenantId();
+        Ticket current = requireTicket(tenantId, id);
+        if (!stateMachine.canTransition(current.getStatus(), TicketStatus.RESOLVED)) {
+            throw new TicketConflictException(
+                    "Ticket cannot resolve from " + current.getStatus());
+        }
+        int updated = ticketRepository.transitionStatusWithResolution(
+                tenantId, id, current.getStatus(), TicketStatus.RESOLVED,
+                resolutionSummary.trim());
+        if (updated != 1) {
+            throw new TicketConflictException(
+                    "Ticket state changed concurrently; reload before retrying");
+        }
+        return TicketResponse.from(requireTicket(tenantId, id));
+    }
+
     private Ticket requireTicket(long tenantId, long id) {
         Ticket ticket = ticketRepository.findByTenantIdAndId(tenantId, id);
         if (ticket == null) {

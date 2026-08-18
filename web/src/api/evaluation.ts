@@ -11,12 +11,19 @@ export interface EvaluationMetrics {
   totalCases: number
   passedCases: number
   passRate: number
+  classificationAccuracy: number
+  rootCauseAccuracy: number
   toolPrecision: number
   toolRecall: number
   citationAccuracy: number
+  parameterAccuracy: number
+  resolutionRate: number
   approvalInterceptionRate: number
   leakageCount: number
   p95LatencyMs: number
+  p50LatencyMs: number
+  averageSteps: number
+  averageTokens: number
 }
 
 export interface EvaluationRun {

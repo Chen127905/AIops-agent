@@ -30,10 +30,11 @@ async function logout(): Promise<void> {
           <RouterLink to="/tickets"><span class="nav-icon">◇</span>工单与 Agent</RouterLink>
           <RouterLink to="/approvals"><span class="nav-icon">✓</span>人工审批</RouterLink>
           <p>能力管理</p>
+          <RouterLink v-if="auth.user?.roles.includes('ADMIN')" to="/services"><span class="nav-icon">⌁</span>业务系统接入</RouterLink>
           <RouterLink to="/knowledge"><span class="nav-icon">▤</span>知识库</RouterLink>
           <RouterLink to="/scenarios"><span class="nav-icon">⌘</span>场景目录</RouterLink>
           <RouterLink to="/evaluations"><span class="nav-icon">◎</span>评测中心</RouterLink>
-          <RouterLink to="/system"><span class="nav-icon">◉</span>系统状态</RouterLink>
+          <RouterLink to="/system"><span class="nav-icon">◉</span>平台运行状态</RouterLink>
         </nav>
       </div>
       <div class="sidebar-footer">

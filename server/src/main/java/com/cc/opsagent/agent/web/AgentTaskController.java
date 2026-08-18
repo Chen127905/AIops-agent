@@ -80,6 +80,20 @@ public class AgentTaskController {
         return AgentTaskResponse.from(taskService.get(taskId));
     }
 
+    @GetMapping("/tickets/{ticketId}/agent-tasks/latest")
+    public ResponseEntity<AgentTaskResponse> latest(@PathVariable long ticketId) {
+        var task = taskService.latestForTicket(ticketId);
+        return task == null
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.ok(AgentTaskResponse.from(task));
+    }
+
+    @GetMapping("/agent-tasks/{taskId}/result")
+    public AgentTaskResultResponse result(@PathVariable long taskId) {
+        var task = taskService.get(taskId);
+        return AgentTaskResultResponse.from(task, taskService.steps(taskId));
+    }
+
     @PostMapping("/agent-tasks/{taskId}/cancel")
     public AgentTaskResponse cancel(@PathVariable long taskId) {
         return AgentTaskResponse.from(

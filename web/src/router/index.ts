@@ -11,6 +11,7 @@ import TicketDetailView from '../views/TicketDetailView.vue'
 import TicketListView from '../views/TicketListView.vue'
 import ScenarioView from '../views/ScenarioView.vue'
 import SystemView from '../views/SystemView.vue'
+import ServiceIntegrationView from '../views/ServiceIntegrationView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -32,6 +33,7 @@ const router = createRouter({
     { path: '/knowledge', name: 'knowledge', component: KnowledgeView },
     { path: '/evaluations', name: 'evaluations', component: EvaluationView },
     { path: '/scenarios', name: 'scenarios', component: ScenarioView },
+    { path: '/services', name: 'services', component: ServiceIntegrationView },
     { path: '/system', name: 'system', component: SystemView },
   ],
 })

@@ -49,8 +49,11 @@ public class DecisionNode extends StructuredModelNode implements OpsAgentNode {
                     Use NONE when no automated write is justified. For restartService use an
                     empty actionArguments object. For changeConfig, actionArguments must be
                     {"changes":{"configurationKey":"configurationValue"}}.
-                    Return strict JSON only with rootCause, proposedAction, actionArguments
-                    and confidence (a number from 0 to 1).
+                    Return strict JSON only with these fields:
+                    rootCause, diagnosisSummary, proposedAction, actionArguments,
+                    confidence (0 to 1), remediationSteps (3 to 8 concrete operator
+                    steps), verificationSteps (2 to 5 measurable checks), and rollbackPlan.
+                    Write all human-facing fields and steps in Simplified Chinese.
                     Ticket category: %s
                     Affected service: %s
                     %s
@@ -73,8 +76,10 @@ public class DecisionNode extends StructuredModelNode implements OpsAgentNode {
                         "changeConfig requires non-empty actionArguments.changes");
             }
             state.decision(
-                    decision.rootCause(), decision.proposedAction(),
-                    arguments, decision.confidence());
+                    decision.rootCause(), decision.diagnosisSummary(),
+                    decision.proposedAction(), arguments, decision.confidence(),
+                    decision.remediationSteps(), decision.verificationSteps(),
+                    decision.rollbackPlan());
         } catch (RuntimeException exception) {
             state.fail(exception.getMessage());
         }
@@ -83,9 +88,13 @@ public class DecisionNode extends StructuredModelNode implements OpsAgentNode {
 
     public record Decision(
             String rootCause,
+            String diagnosisSummary,
             String proposedAction,
             Map<String, Object> actionArguments,
-            double confidence) { }
+            double confidence,
+            java.util.List<String> remediationSteps,
+            java.util.List<String> verificationSteps,
+            String rollbackPlan) { }
 
     private boolean hasConfigurationChanges(Map<String, Object> arguments) {
         return arguments.get("changes") instanceof Map<?, ?> changes
