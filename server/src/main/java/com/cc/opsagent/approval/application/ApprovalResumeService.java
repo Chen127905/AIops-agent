@@ -183,13 +183,13 @@ public class ApprovalResumeService {
 
     private void fail(ResumeCommand command, String error) {
         String safe = safeError(error);
-        repository.finishExecution(
-                command.tenantId(), command.approvalId(),
-                ApprovalStatus.FAILED, safe);
         taskService.transition(
                 command.taskId(), AgentTaskStatus.WAITING_APPROVAL,
                 AgentTaskStatus.MANUAL_REQUIRED);
         taskService.recordErrorSummary(command.taskId(), safe);
+        repository.finishExecution(
+                command.tenantId(), command.approvalId(),
+                ApprovalStatus.FAILED, safe);
         eventService.append(command.taskId(), "APPROVAL_EXECUTION_FAILED", Map.of(
                 "approvalId", command.approvalId(),
                 "error", safe));
@@ -197,9 +197,6 @@ public class ApprovalResumeService {
 
     private void failRunning(ResumeCommand command, String error) {
         String safe = safeError(error);
-        repository.finishExecution(
-                command.tenantId(), command.approvalId(),
-                ApprovalStatus.FAILED, safe);
         AgentTaskStatus status = taskService.get(command.taskId()).status();
         if (status == AgentTaskStatus.RUNNING) {
             taskService.transition(
@@ -211,6 +208,9 @@ public class ApprovalResumeService {
                     AgentTaskStatus.MANUAL_REQUIRED);
         }
         taskService.recordErrorSummary(command.taskId(), safe);
+        repository.finishExecution(
+                command.tenantId(), command.approvalId(),
+                ApprovalStatus.FAILED, safe);
         eventService.append(command.taskId(), "APPROVAL_EXECUTION_FAILED", Map.of(
                 "approvalId", command.approvalId(),
                 "error", safe));
