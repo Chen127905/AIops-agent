@@ -1,0 +1,63 @@
+[
+  {
+    "name": "Redis 命令延迟与超时排障手册",
+    "source": "https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/",
+    "mediaType": "text/markdown",
+    "metadata": {
+      "scenarioKey": "redis-timeout",
+      "product": "Redis",
+      "sourceType": "official-documentation",
+      "reviewedAt": "2026-08-18"
+    },
+    "content": "# Redis 命令延迟与超时排障\n\n## 适用现象\n应用出现 RedisCommandTimeoutException，命令延迟和超时率同时升高。\n\n## 证据收集\n1. 同时检查应用侧耗时和 Redis 服务端耗时，避免把网络往返、序列化或线程调度误判为 Redis 服务端故障。\n2. 使用延迟监控、LATENCY LATEST/HISTORY/DOCTOR 和 SLOWLOG 检查延迟尖峰与慢命令。\n3. 检查 CPU、内存换页、持久化 I/O、fork、网络丢包和大量键同时过期。\n4. 避免在生产执行 KEYS 等可能阻塞单线程事件循环的高复杂度命令，遍历键空间优先使用 SCAN。\n\n## 处置边界\n不要执行 FLUSHALL、批量删键或未经审批的服务重启。若 Redis 集群本身 DEGRADED，应优先处理集群或网络问题；重启业务服务只能作为已审批的短期缓解措施，不能替代根因修复。\n\n## 验证\n处置后重新观察命令延迟、超时率、错误日志和依赖健康，只有指标恢复且错误停止增长才可判定恢复。"
+  },
+  {
+    "name": "HikariCP 数据库连接池耗尽排障手册",
+    "source": "https://github.com/brettwooldridge/HikariCP",
+    "mediaType": "text/markdown",
+    "metadata": {
+      "scenarioKey": "db-pool-exhausted",
+      "product": "HikariCP,MySQL",
+      "sourceType": "official-project-documentation",
+      "reviewedAt": "2026-08-18"
+    },
+    "content": "# HikariCP 连接池耗尽排障\n\n## 适用现象\nactive connections 长时间达到 maximumPoolSize，pending threads 持续增长，并出现 Connection is not available 或 connectionTimeout。\n\n## 证据收集\n1. 同时查看 active、idle、pending、acquire timeout 和连接持有时间，不要仅凭一次超时就扩大连接池。\n2. 检查未提交事务、慢 SQL、锁等待、连接未关闭和下游数据库容量。MySQL 可使用 Performance Schema 的 transaction、data_locks 和 data_lock_waits 定位长事务与阻塞关系。\n3. HikariCP 的 maximumPoolSize 决定池上限；池满且无空闲连接时，getConnection 最多等待 connectionTimeout。\n4. leakDetectionThreshold 只用于报告连接可能被持有过久，应结合业务事务耗时设置，不能把告警本身直接当成连接泄漏结论。\n\n## 处置边界\n优先终止或修复泄漏事务、慢 SQL 和锁等待。盲目增大 maximumPoolSize 可能把压力转移到数据库。若已确认进程内连接无法回收，可在审批后重启受影响服务作为临时恢复措施。\n\n## 验证\n确认 active 下降、pending 清零、连接获取恢复、事务正常结束，并继续观察是否再次增长。"
+  },
+  {
+    "name": "Spring Boot API 5xx 与延迟突增排障手册",
+    "source": "https://docs.spring.io/spring-boot/reference/actuator/metrics.html",
+    "mediaType": "text/markdown",
+    "metadata": {
+      "scenarioKey": "api-error-rate",
+      "product": "Spring Boot",
+      "sourceType": "official-documentation",
+      "reviewedAt": "2026-08-18"
+    },
+    "content": "# Spring Boot API 5xx 与延迟突增排障\n\n## 证据收集\n1. 使用 http.server.requests 按 URI 模板、method、status、outcome 和 exception 聚合，避免把原始 URL 作为高基数标签。\n2. 对比 5xx 比例、P95/P99 延迟、请求量和最近发布时间，区分流量增长、依赖失败和应用异常。\n3. 从错误日志提取首个业务异常及调用链；若依赖健康而同一代码路径持续抛错，优先检查最近代码或配置变更。\n4. 不能只因出现 NullPointerException 就自动重启；重启不会修复确定性的错误配置。\n\n## 演示平台变更基线\n若 payment-api 的依赖均为 UP，错误集中在 payment routing rule，且变更记录确认当前路由配置缺少默认渠道，可在审批后执行 changeConfig，将 routingVersion 回滚为已知良好版本 stable-2026-08-16。\n\n## 验证\n变更后必须重新检查服务健康、5xx 比例、延迟和异常日志；没有恢复则停止自动操作并转人工处理。"
+  },
+  {
+    "name": "Apache Kafka 消费积压排障手册",
+    "source": "https://kafka.apache.org/40/operations/monitoring/",
+    "mediaType": "text/markdown",
+    "metadata": {
+      "scenarioKey": "mq-backlog",
+      "product": "Apache Kafka",
+      "sourceType": "official-documentation",
+      "reviewedAt": "2026-08-18"
+    },
+    "content": "# Apache Kafka 消费积压排障\n\n## 适用现象\nrecords-lag 或 records-lag-max 持续增长，同时 records-consumed-rate 或 fetch-rate 下降。\n\n## 证据收集\n1. 按 consumer group、topic 和 partition 检查 lag，确认是单分区热点还是整个消费组变慢。\n2. 查看 records-consumed-rate、fetch-rate、fetch-latency、time-between-poll、last-poll-seconds-ago 和 rebalance 情况。\n3. 检查消费者业务处理耗时、下游依赖、线程阻塞、GC 和错误重试；broker 正常并不代表消费者处理正常。\n4. 不要通过清空队列或跳过 offset 消除积压，这可能造成不可恢复的数据丢失。\n\n## 处置边界\n若 broker 健康、lag 增长、消费速率下降，并且日志确认单个消费者处理线程卡死，可在审批后重启该消费者作为短期恢复。长期方案应修复阻塞处理、合理扩充分区与消费者并建立背压。\n\n## 验证\n确认消费者恢复 poll，消费速率大于生产速率，lag 连续下降且没有重复消费或死信异常。"
+  },
+  {
+    "name": "Kubernetes 磁盘压力与日志磁盘占满排障手册",
+    "source": "https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/",
+    "mediaType": "text/markdown",
+    "metadata": {
+      "scenarioKey": "disk-full",
+      "product": "Kubernetes",
+      "sourceType": "official-documentation",
+      "reviewedAt": "2026-08-18"
+    },
+    "content": "# Kubernetes 磁盘压力与日志磁盘占满排障\n\n## 证据收集\n1. 同时检查磁盘可用字节和 inode；DiskPressure 可能由 nodefs、imagefs 或 containerfs 的空间或 inode 阈值触发。\n2. 确认占用来源是容器日志、可写层、本地卷、镜像还是系统日志，避免直接删除未知文件。\n3. 查看 Node condition、disk-pressure taint、Pod eviction 和服务写入错误。Kubelet 在达到阈值时可能先回收节点资源，再驱逐 Pod。\n4. 删除卷、绕过 PodDisruptionBudget 或直接清理业务数据属于高风险操作。\n\n## 演示平台变更基线\n若 log-ingestion-service 的对象存储依赖为 UP，日志显示写 checkpoint 时 No space left，并确认无上限的本地日志保留是主要占用来源，可在审批后执行 changeConfig，将 retentionDays 设置为 3。\n\n## 验证\n确认可用空间和 inode 回升、DiskPressure 消失、checkpoint 写入恢复，并验证保留策略不会删除合规要求内的数据。"
+  }
+]
+

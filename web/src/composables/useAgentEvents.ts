@@ -6,6 +6,7 @@ import {
   type AgentEvent,
   type AgentTask,
 } from '../api/tickets'
+import type { EntityId } from '../api/types'
 
 const TERMINAL_EVENTS = new Set([
   'TASK_COMPLETED',
@@ -13,7 +14,13 @@ const TERMINAL_EVENTS = new Set([
   'TASK_REJECTED',
 ])
 
-export function useAgentEvents(taskId: Ref<number | null>) {
+function isTerminalEvent(event: AgentEvent): boolean {
+  if (!TERMINAL_EVENTS.has(event.eventType)) return false
+  return event.eventType !== 'TASK_COMPLETED'
+    || event.payload.status !== 'WAITING_APPROVAL'
+}
+
+export function useAgentEvents(taskId: Ref<EntityId | null>) {
   const events = ref<AgentEvent[]>([])
   const task = ref<AgentTask | null>(null)
   const connected = ref(false)
@@ -26,7 +33,7 @@ export function useAgentEvents(taskId: Ref<number | null>) {
     window.setTimeout(resolve, milliseconds)
   })
 
-  async function connect(id: number, currentGeneration: number): Promise<void> {
+  async function connect(id: EntityId, currentGeneration: number): Promise<void> {
     while (generation === currentGeneration) {
       controller = new AbortController()
       try {
@@ -36,7 +43,7 @@ export function useAgentEvents(taskId: Ref<number | null>) {
           if (event.sequence <= lastSequence.value) return
           events.value.push(event)
           lastSequence.value = event.sequence
-          if (TERMINAL_EVENTS.has(event.eventType)) {
+          if (isTerminalEvent(event)) {
             generation += 1
             controller?.abort()
             void refreshTask(id)

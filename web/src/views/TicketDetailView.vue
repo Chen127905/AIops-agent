@@ -2,13 +2,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { cancelAgentTask, cancelTicket, getAgentTask, getAgentTaskResult, getLatestAgentTask, getTicket, startAgentTask, type AgentTask, type AgentTaskResult, type Ticket } from '../api/tickets'
+import { routeParameter, type EntityId } from '../api/types'
 import AgentTimeline from '../components/AgentTimeline.vue'
 import ConsoleLayout from '../components/ConsoleLayout.vue'
 import ModalDialog from '../components/ModalDialog.vue'
 import { displayLabel, formatDate, scenarioLabel } from '../utils/labels'
 
-const route = useRoute(); const router = useRouter(); const ticketId = Number(route.params.id)
-const ticket = ref<Ticket | null>(null); const taskId = ref(route.query.task ? Number(route.query.task) : null); const task = ref<AgentTask | null>(null)
+const route = useRoute(); const router = useRouter(); const ticketId = routeParameter(route.params.id)
+const ticket = ref<Ticket | null>(null); const taskId = ref<EntityId | null>(route.query.task ? routeParameter(route.query.task) : null); const task = ref<AgentTask | null>(null)
 const result = ref<AgentTaskResult | null>(null)
 const error = ref(''); const busy = ref(false); const confirmAction = ref<'ticket' | 'task' | null>(null)
 const terminalTickets = ['RESOLVED', 'FAILED', 'CANCELLED', 'TIMEOUT', 'MANUAL_REQUIRED']
@@ -63,6 +64,7 @@ onMounted(async () => { try { await refresh() } catch { error.value = '工单不
     <details v-if="result.observations.length || result.citations.length"><summary>查看诊断证据与工具观测</summary><div class="evidence-summary"><p><strong>已调用工具：</strong>{{ result.plannedTools.join('、') || '无' }}</p><p><strong>知识引用：</strong>{{ result.citations.join('、') || '无' }}</p><pre v-if="result.observations.length">{{ JSON.stringify(result.observations, null, 2) }}</pre></div></details>
     <p v-if="result.errorSummary" class="error-message">{{ result.errorSummary }}</p>
   </section>
-  <section v-else class="agent-empty surface-panel"><div class="agent-symbol">AI</div><div><h3>尚未启动 Agent 诊断</h3><p>启动后，平台将检索知识、调用只读诊断工具，并在高风险恢复操作前等待人工审批。</p></div></section>
+  <section v-else-if="result" class="agent-empty surface-panel"><div class="agent-symbol">!</div><div><h3>Agent 诊断未完成</h3><p>{{ result.errorSummary || '任务未形成可靠诊断结论，请查看上方执行时间线后重试或转人工处理。' }}</p></div></section>
+  <section v-else-if="!taskId" class="agent-empty surface-panel"><div class="agent-symbol">AI</div><div><h3>尚未启动 Agent 诊断</h3><p>启动后，平台将检索知识、调用只读诊断工具，并在高风险恢复操作前等待人工审批。</p></div></section>
   <ModalDialog v-if="confirmAction" :title="confirmAction === 'ticket' ? '确认取消工单？' : '确认停止 Agent？'" eyebrow="操作确认" @close="confirmAction = null"><p class="confirm-copy">{{ confirmAction === 'ticket' ? '工单取消后不能再次启动 Agent，请确认该事件无需继续处置。' : '系统会请求中止当前执行，已经产生的事件仍会保留用于审计。' }}</p><div class="modal-actions"><button class="text-button" @click="confirmAction = null">返回</button><button class="danger-button" :disabled="busy" @click="confirm">确认操作</button></div></ModalDialog>
 </ConsoleLayout></template>

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { api, TOKEN_STORAGE_KEY } from '../api/http'
+import type { EntityId } from '../api/types'
 
 export interface LoginCredentials {
   tenantCode: string
@@ -16,8 +17,8 @@ interface TokenResponse {
 }
 
 export interface AuthenticatedUser {
-  tenantId: number
-  userId: number
+  tenantId: EntityId
+  userId: EntityId
   username: string
   roles: string[]
 }

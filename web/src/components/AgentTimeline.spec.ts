@@ -59,4 +59,26 @@ describe('AgentTimeline', () => {
     expect(wrapper.text()).toContain('[REDACTED]')
     wrapper.unmount()
   })
+
+  it('keeps reconnecting while a task waits for approval', async () => {
+    vi.mocked(getAgentTask).mockResolvedValue({
+      id: 9, ticketId: 3, status: 'WAITING_APPROVAL', maxSteps: 12,
+      timeoutSeconds: 180, maxTokens: 20000, stepsUsed: 5,
+      tokensUsed: 200, errorSummary: null, createdAt: '', startedAt: '', finishedAt: null,
+    })
+    vi.mocked(streamAgentEvents)
+      .mockImplementationOnce(async (_taskId, _after, onEvent) => {
+        onEvent({ id: 2, tenantId: 1, taskId: 9, sequence: 7,
+          eventType: 'TASK_COMPLETED', payload: { status: 'WAITING_APPROVAL' }, createdAt: '' })
+      })
+      .mockImplementation(() => new Promise(() => {}))
+
+    const wrapper = mount(AgentTimeline, { props: { taskId: 9 } })
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(750)
+
+    expect(streamAgentEvents).toHaveBeenNthCalledWith(
+      2, 9, 7, expect.any(Function), expect.any(AbortSignal))
+    wrapper.unmount()
+  })
 })

@@ -35,10 +35,10 @@ KNOWLEDGE_MIN_SCORE=0.25
 
 ```powershell
 docker compose --env-file .env up -d --build
-pwsh -File scripts/seed-knowledge.ps1
+powershell -ExecutionPolicy Bypass -File scripts/seed-knowledge.ps1
 ```
 
-初始化脚本会通过平台 API 发布五份有官方来源的运维手册，覆盖 Redis 超时、HikariCP 连接池耗尽、Spring Boot API 5xx、Kafka 消费积压和 Kubernetes 磁盘压力。不要在同一批已入库文档上切换 embedding 提供方；切换后应重新入库，避免混用不同向量空间。
+也可以登录 `acme / admin`，进入“知识库”后点击“初始化内置知识”。页面和脚本都会调用同一个租户级幂等接口，重复执行不会创建重复文档。平台会发布五份有官方来源的运维手册，覆盖 Redis 超时、HikariCP 连接池耗尽、Spring Boot API 5xx、Kafka 消费积压和 Kubernetes 磁盘压力。不要在同一批已入库文档上切换 embedding 提供方；切换后应重新入库，避免混用不同向量空间。
 
 登录后可创建三类工单：已接入的真实服务、自定义知识诊断、内置故障沙箱。Agent 会输出诊断摘要、根因、处置步骤、验证标准、回滚方案和证据；高风险动作进入人工审批，批准后才会调用变更端点并再次检查健康状态。离开详情页不会丢失执行上下文，重新进入工单会自动恢复最近一次任务。
 
@@ -60,7 +60,7 @@ pwsh -File scripts/seed-knowledge.ps1
 
 一键启动会启用 PostgreSQL/pgvector，并默认使用 `KNOWLEDGE_EMBEDDING_PROVIDER=LOCAL` 的本地确定性向量器，因此不配置模型 Key 也能验证完整的“文档切分 → 向量写入 → 租户过滤 → 相似度检索 → 引用”链路。
 
-登录 `acme / admin / demo-password` 后进入“知识库”，点击“新增文档”完成入库发布，再使用页面中的语义检索验证召回。页面会返回 `tenant:...:doc:...:chunk:...` 引用。也可以运行：
+登录 `acme / admin / demo-password` 后进入“知识库”，可以初始化内置知识或新增自己的文档，再使用页面中的语义检索验证召回。页面会返回 `tenant:...:doc:...:chunk:...` 引用。也可以运行：
 
 ```powershell
 pwsh -File scripts/smoke.ps1 -SkipComposeUp
@@ -104,7 +104,7 @@ docker compose --env-file .env.example build
 pwsh -File scripts/smoke.ps1
 ```
 
-权威验收基线为 99 个后端单元测试、57 个 Testcontainers 集成测试和 9 个前端测试。Smoke 真实检查健康、登录、知识入库与 pgvector 检索、跨租户隔离、工单、Agent 状态边界与 30 条 MOCK 评测，并输出持久化 `evaluationRun`。
+权威验收基线为 99 个后端单元测试、58 个 Testcontainers 集成测试和 13 个前端测试。Smoke 真实检查健康、登录、知识入库与 pgvector 检索、跨租户隔离、工单、Agent 状态边界与 30 条 MOCK 评测，并输出持久化 `evaluationRun`。
 
 ## 文档
 

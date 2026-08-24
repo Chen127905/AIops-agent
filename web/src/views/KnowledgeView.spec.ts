@@ -1,12 +1,25 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import MockAdapter from 'axios-mock-adapter'
-import { afterEach, describe, expect, it } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { api } from '../api/http'
+import { useAuthStore } from '../stores/auth'
 import KnowledgeView from './KnowledgeView.vue'
 
 describe('KnowledgeView', () => {
   const mock = new MockAdapter(api)
+
+  beforeEach(() => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    useAuthStore().user = {
+      tenantId: 1,
+      userId: 1,
+      username: 'admin',
+      roles: ['ADMIN'],
+    }
+  })
 
   afterEach(() => mock.reset())
 
@@ -50,5 +63,25 @@ describe('KnowledgeView', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('embedding provider failed')
     expect(wrapper.text()).not.toContain('请确认 pgvector 已启用')
+  })
+
+  it('initializes built-in knowledge from the page without duplicates', async () => {
+    mock.onPost('/api/knowledge/bootstrap').reply(200, {
+      total: 5,
+      published: 5,
+      skipped: 0,
+    })
+    mock.onGet('/api/knowledge/search').reply(200, [])
+    const wrapper = mount(KnowledgeView, {
+      global: { stubs: { ConsoleLayout: { template: '<div><slot /></div>' } } },
+    })
+
+    await wrapper.findAll('button')
+      .find((button) => button.text().includes('初始化内置知识'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('初始化完成：新增 5 份')
+    expect(mock.history.post[0].url).toBe('/api/knowledge/bootstrap')
   })
 })

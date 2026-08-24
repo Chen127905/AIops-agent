@@ -1,12 +1,13 @@
 import { api, AUTH_UNAUTHORIZED_EVENT, TOKEN_STORAGE_KEY } from './http'
+import type { EntityId } from './types'
 
 export type TicketStatus = 'OPEN' | 'TRIAGING' | 'DIAGNOSING' | 'WAITING_APPROVAL' | 'EXECUTING' | 'VERIFYING' | 'RESOLVED' | 'FAILED' | 'CANCELLED' | 'TIMEOUT' | 'MANUAL_REQUIRED'
 export type TicketSeverity = 'UNKNOWN' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 
 export interface Ticket {
-  id: number
-  tenantId: number
-  reporterId: number
+  id: EntityId
+  tenantId: EntityId
+  reporterId: EntityId
   title: string
   description: string
   affectedService: string | null
@@ -48,8 +49,8 @@ export async function listScenarios(): Promise<OpsScenario[]> {
 }
 
 export interface AgentTask {
-  id: number
-  ticketId: number
+  id: EntityId
+  ticketId: EntityId
   status: string
   maxSteps: number
   timeoutSeconds: number
@@ -63,9 +64,9 @@ export interface AgentTask {
 }
 
 export interface AgentEvent {
-  id: number
-  tenantId: number
-  taskId: number
+  id: EntityId
+  tenantId: EntityId
+  taskId: EntityId
   sequence: number
   eventType: string
   payload: Record<string, unknown>
@@ -73,8 +74,8 @@ export interface AgentEvent {
 }
 
 export interface AgentTaskResult {
-  taskId: number
-  ticketId: number
+  taskId: EntityId
+  ticketId: EntityId
   status: string
   category: string | null
   urgency: string | null
@@ -102,7 +103,7 @@ export async function listTickets(params: {
   return (await api.get<PageResult<Ticket>>('/api/tickets', { params })).data
 }
 
-export async function getTicket(id: number): Promise<Ticket> {
+export async function getTicket(id: EntityId): Promise<Ticket> {
   return (await api.get<Ticket>(`/api/tickets/${id}`)).data
 }
 
@@ -110,33 +111,33 @@ export async function createTicket(command: CreateTicket): Promise<Ticket> {
   return (await api.post<Ticket>('/api/tickets', command)).data
 }
 
-export async function cancelTicket(id: number): Promise<void> {
+export async function cancelTicket(id: EntityId): Promise<void> {
   await api.post(`/api/tickets/${id}/cancel`)
 }
 
-export async function startAgentTask(ticketId: number): Promise<AgentTask> {
+export async function startAgentTask(ticketId: EntityId): Promise<AgentTask> {
   return (await api.post<AgentTask>(`/api/tickets/${ticketId}/agent-tasks`)).data
 }
 
-export async function getAgentTask(taskId: number): Promise<AgentTask> {
+export async function getAgentTask(taskId: EntityId): Promise<AgentTask> {
   return (await api.get<AgentTask>(`/api/agent-tasks/${taskId}`)).data
 }
 
-export async function getLatestAgentTask(ticketId: number): Promise<AgentTask | null> {
+export async function getLatestAgentTask(ticketId: EntityId): Promise<AgentTask | null> {
   const response = await api.get<AgentTask>(`/api/tickets/${ticketId}/agent-tasks/latest`)
   return response.status === 204 ? null : response.data
 }
 
-export async function getAgentTaskResult(taskId: number): Promise<AgentTaskResult> {
+export async function getAgentTaskResult(taskId: EntityId): Promise<AgentTaskResult> {
   return (await api.get<AgentTaskResult>(`/api/agent-tasks/${taskId}/result`)).data
 }
 
-export async function cancelAgentTask(taskId: number): Promise<AgentTask> {
+export async function cancelAgentTask(taskId: EntityId): Promise<AgentTask> {
   return (await api.post<AgentTask>(`/api/agent-tasks/${taskId}/cancel`)).data
 }
 
 export async function streamAgentEvents(
-  taskId: number,
+  taskId: EntityId,
   after: number,
   onEvent: (event: AgentEvent) => void,
   signal: AbortSignal,

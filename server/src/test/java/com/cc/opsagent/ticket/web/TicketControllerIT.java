@@ -59,6 +59,8 @@ class TicketControllerIT {
                 outsider.tenantId(), outsider.userId(), "Foreign outage", "RESOLVED");
         RestClient client = client();
         String token = login(client, owner);
+        jdbcTemplate.execute(
+                "ALTER TABLE ticket AUTO_INCREMENT = 9007199254740992");
 
         ResponseEntity<Map> created = client.post()
                 .uri("/api/tickets")
@@ -75,7 +77,9 @@ class TicketControllerIT {
         assertThat(created.getStatusCode().value()).isEqualTo(201);
         Map<?, ?> createdBody = created.getBody();
         assertThat(createdBody).isNotNull();
-        long ticketId = ((Number) createdBody.get("id")).longValue();
+        assertThat(createdBody.get("id")).isInstanceOf(String.class);
+        long ticketId = Long.parseLong((String) createdBody.get("id"));
+        assertThat(ticketId).isGreaterThan(9_007_199_254_740_991L);
         assertThat(((Number) createdBody.get("tenantId")).longValue()).isEqualTo(owner.tenantId());
         assertThat(((Number) createdBody.get("reporterId")).longValue()).isEqualTo(owner.userId());
         assertThat(createdBody.get("status")).isEqualTo("OPEN");
@@ -86,7 +90,7 @@ class TicketControllerIT {
                 .retrieve()
                 .body(Map.class);
         assertThat(found).isNotNull();
-        assertThat(((Number) found.get("id")).longValue()).isEqualTo(ticketId);
+        assertThat(found.get("id")).isEqualTo(Long.toString(ticketId));
 
         Map<?, ?> page = client.get()
                 .uri("/api/tickets?page=1&size=20")

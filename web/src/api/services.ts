@@ -1,8 +1,9 @@
 import { api } from './http'
+import type { EntityId } from './types'
 
 export interface ManagedService {
-  id: number
-  tenantId: number
+  id: EntityId
+  tenantId: EntityId
   name: string
   systemName: string
   environment: string
@@ -33,12 +34,12 @@ export async function listManagedServices(): Promise<ManagedService[]> {
 export async function createManagedService(input: ManagedServiceInput): Promise<ManagedService> {
   return (await api.post<ManagedService>('/api/managed-services', input)).data
 }
-export async function updateManagedService(id: number, input: ManagedServiceInput): Promise<ManagedService> {
+export async function updateManagedService(id: EntityId, input: ManagedServiceInput): Promise<ManagedService> {
   return (await api.put<ManagedService>(`/api/managed-services/${id}`, input)).data
 }
-export async function deleteManagedService(id: number): Promise<void> {
+export async function deleteManagedService(id: EntityId): Promise<void> {
   await api.delete(`/api/managed-services/${id}`)
 }
-export async function testManagedService(id: number): Promise<ServiceHealth> {
+export async function testManagedService(id: EntityId): Promise<ServiceHealth> {
   return (await api.post<ServiceHealth>(`/api/managed-services/${id}/test`)).data
 }

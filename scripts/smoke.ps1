@@ -19,20 +19,41 @@ function Invoke-JsonRequest {
         Method = $Method
         Uri = "$BaseUrl$Path"
         Headers = $Headers
-        SkipHttpErrorCheck = $true
         TimeoutSec = $TimeoutSec
+    }
+    if ((Get-Command Invoke-WebRequest).Parameters.ContainsKey(
+            "SkipHttpErrorCheck")) {
+        $arguments.SkipHttpErrorCheck = $true
+    }
+    if ((Get-Command Invoke-WebRequest).Parameters.ContainsKey(
+            "UseBasicParsing")) {
+        $arguments.UseBasicParsing = $true
     }
     if ($null -ne $Body) {
         $arguments.ContentType = "application/json"
         $arguments.Body = $Body | ConvertTo-Json -Depth 12
     }
-    $response = Invoke-WebRequest @arguments
+    try {
+        $response = Invoke-WebRequest @arguments
+    } catch {
+        $response = $_.Exception.Response
+        if ($null -eq $response) { throw }
+    }
     if ($response.StatusCode -notin $ExpectedStatus) {
         throw "$Method $Path returned $($response.StatusCode), expected $($ExpectedStatus -join ',')"
     }
-    $content = $response.Content
-    if ($content -is [byte[]]) {
-        $content = [System.Text.Encoding]::UTF8.GetString($content)
+    if ($response.PSObject.Properties.Name -contains "Content") {
+        $content = $response.Content
+        if ($content -is [byte[]]) {
+            $content = [System.Text.Encoding]::UTF8.GetString($content)
+        }
+    } elseif ($response.PSObject.Methods.Name -contains "GetResponseStream") {
+        $reader = [System.IO.StreamReader]::new(
+            $response.GetResponseStream(),
+            [System.Text.Encoding]::UTF8)
+        try { $content = $reader.ReadToEnd() } finally { $reader.Dispose() }
+    } else {
+        $content = ""
     }
     if ([string]::IsNullOrWhiteSpace($content)) { return $null }
     return $content | ConvertFrom-Json
@@ -57,23 +78,42 @@ if (-not $SkipComposeUp) {
 }
 
 $deadline = (Get-Date).AddMinutes(4)
+$lastHealthError = "no response"
 do {
     try {
         $health = Invoke-JsonRequest -Method GET -Path "/actuator/health" -TimeoutSec 5
         if ($health.status -eq "UP") { break }
-    } catch { }
+    } catch { $lastHealthError = $_.Exception.Message }
     Start-Sleep -Seconds 2
 } while ((Get-Date) -lt $deadline)
-if ($health.status -ne "UP") { throw "Application health did not become UP" }
+if ($health.status -ne "UP") {
+    throw "Application health did not become UP. Last error: $lastHealthError"
+}
 
 $adminToken = Get-Token -TenantCode "acme" -Username "admin"
 $foreignToken = Get-Token -TenantCode "beta" -Username "operator"
 $adminHeaders = @{ Authorization = "Bearer $adminToken" }
 $foreignHeaders = @{ Authorization = "Bearer $foreignToken" }
+$smokeId = [Guid]::NewGuid().ToString("N")
+
+$null = Invoke-JsonRequest -Method POST -Path "/api/knowledge/bootstrap" `
+    -Headers $foreignHeaders -ExpectedStatus @(403)
+$bootstrap = Invoke-JsonRequest -Method POST -Path "/api/knowledge/bootstrap" `
+    -Headers $adminHeaders -TimeoutSec 120
+if ($bootstrap.total -ne 5 `
+        -or ($bootstrap.published + $bootstrap.skipped) -ne 5) {
+    throw "Built-in knowledge bootstrap returned an invalid summary"
+}
+$bootstrapRepeated = Invoke-JsonRequest -Method POST `
+    -Path "/api/knowledge/bootstrap" -Headers $adminHeaders -TimeoutSec 120
+if ($bootstrapRepeated.published -ne 0 `
+        -or $bootstrapRepeated.skipped -ne 5) {
+    throw "Built-in knowledge bootstrap is not idempotent"
+}
 
 $knowledge = Invoke-JsonRequest -Method POST -Path "/api/knowledge/documents" -Headers $adminHeaders -ExpectedStatus @(201) -Body @{
-    name = "Smoke Redis timeout runbook"
-    source = "smoke://redis-timeout-runbook"
+    name = "Smoke Redis timeout runbook $smokeId"
+    source = "smoke://redis-timeout-runbook/$smokeId"
     mediaType = "text/markdown"
     content = "# Redis connection pool timeout`nInspect pool utilization, command latency, and downstream dependencies before requesting an approved service restart."
     metadata = @{ purpose = "smoke" }
@@ -93,6 +133,13 @@ $ticket = Invoke-JsonRequest -Method POST -Path "/api/tickets" -Headers $adminHe
     affectedService = "order-service"
     category = "REDIS_TIMEOUT"
     severity = "HIGH"
+}
+if ($ticket.id -is [string]) {
+    if ($ticket.id -notmatch '^[0-9]+$') {
+        throw "String ticket ID was not a decimal integer"
+    }
+} elseif ([decimal]$ticket.id -gt 9007199254740991) {
+    throw "Unsafe numeric ticket ID was not serialized as a string"
 }
 if ($ticket.id -le 0) { throw "Ticket creation returned no ID" }
 

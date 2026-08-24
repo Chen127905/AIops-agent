@@ -2,8 +2,7 @@ param(
     [string]$BaseUrl = "http://localhost:8088",
     [string]$TenantCode = "acme",
     [string]$Username = "admin",
-    [string]$Password = "demo-password",
-    [string]$Manifest = "$PSScriptRoot\..\deploy\knowledge\initial-runbooks.json"
+    [string]$Password = "demo-password"
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,22 +14,13 @@ $login = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/auth/login" `
         password = $Password
     } | ConvertTo-Json)
 $headers = @{ Authorization = "Bearer $($login.accessToken)" }
-$documents = Get-Content -LiteralPath $Manifest -Raw -Encoding UTF8 | ConvertFrom-Json
+$result = Invoke-RestMethod -Method Post `
+    -Uri "$BaseUrl/api/knowledge/bootstrap" `
+    -Headers $headers -TimeoutSec 120
 
-foreach ($document in $documents) {
-    $encodedName = [Uri]::EscapeDataString($document.name)
-    $matches = Invoke-RestMethod -Method Get `
-        -Uri "$BaseUrl/api/knowledge/search?query=$encodedName&topK=20" `
-        -Headers $headers -TimeoutSec 120
-    $existing = $matches | Where-Object {
-        $_.metadata.documentName -eq $document.name
-    } | Select-Object -First 1
-    if ($null -ne $existing) {
-        Write-Host "already published documentId=$($existing.documentId) name=$($document.name)"
-        continue
-    }
-    $created = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/knowledge/documents" `
-        -Headers $headers -ContentType "application/json" `
-        -Body ($document | ConvertTo-Json -Depth 8) -TimeoutSec 120
-    Write-Host "published documentId=$($created.documentId) name=$($document.name)"
-}
+Write-Host (
+    "knowledge initialized total={0} published={1} skipped={2}" -f
+    $result.total,
+    $result.published,
+    $result.skipped
+)

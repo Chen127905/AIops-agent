@@ -69,6 +69,9 @@ class DocumentIngestionServiceIT {
     DocumentIngestionService service;
 
     @Autowired
+    BuiltInKnowledgeService builtInKnowledgeService;
+
+    @Autowired
     KnowledgeChunkRepository chunkRepository;
 
     @Autowired
@@ -188,6 +191,36 @@ class DocumentIngestionServiceIT {
                     assertThat(chunk.content()).doesNotContain("\r");
                     assertThat(chunk.content().length()).isLessThanOrEqualTo(1200);
                 });
+    }
+
+    @Test
+    void initializesBuiltInKnowledgeOncePerTenant() {
+        long tenantA = insertTenant("bootstrap-a");
+        long tenantB = insertTenant("bootstrap-b");
+
+        authenticate(tenantA);
+        BuiltInKnowledgeService.BootstrapResult first =
+                builtInKnowledgeService.initialize();
+        BuiltInKnowledgeService.BootstrapResult repeated =
+                builtInKnowledgeService.initialize();
+
+        assertThat(first.total()).isEqualTo(5);
+        assertThat(first.published()).isEqualTo(5);
+        assertThat(first.skipped()).isZero();
+        assertThat(repeated.published()).isZero();
+        assertThat(repeated.skipped()).isEqualTo(5);
+
+        authenticate(tenantB);
+        BuiltInKnowledgeService.BootstrapResult secondTenant =
+                builtInKnowledgeService.initialize();
+        assertThat(secondTenant.published()).isEqualTo(5);
+
+        assertThat(businessJdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM knowledge_document",
+                Integer.class)).isEqualTo(10);
+        assertThat(vectorJdbcTemplate.queryForObject(
+                "SELECT COUNT(DISTINCT tenant_id) FROM knowledge_chunk",
+                Integer.class)).isEqualTo(2);
     }
 
     private IngestDocumentCommand newDocument(

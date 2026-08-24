@@ -33,6 +33,17 @@ public interface KnowledgeDocumentMapper extends BaseMapper<KnowledgeDocument> {
             @Param("tenantId") long tenantId,
             @Param("documentId") long documentId);
 
+    @Select("""
+            SELECT id, tenant_id, name, source, media_type, active_version,
+                   processing_version, status, created_at, updated_at
+            FROM knowledge_document
+            WHERE tenant_id = #{tenantId} AND source = #{source}
+            LIMIT 1
+            """)
+    KnowledgeDocument selectBySource(
+            @Param("tenantId") long tenantId,
+            @Param("source") String source);
+
     @Update("""
             UPDATE knowledge_document
             SET processing_version = #{version},

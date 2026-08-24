@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, toRef, watch } from 'vue'
 import type { AgentTask } from '../api/tickets'
+import type { EntityId } from '../api/types'
 
 import { useAgentEvents } from '../composables/useAgentEvents'
 import { displayLabel, formatDate } from '../utils/labels'
 
-const props = defineProps<{ taskId: number }>()
+const props = defineProps<{ taskId: EntityId }>()
 const emit = defineEmits<{ taskUpdated: [task: AgentTask] }>()
 const { events, task, connected, reconnecting, lastSequence } = useAgentEvents(toRef(props, 'taskId'))
 watch(task, (value) => { if (value) emit('taskUpdated', value) })
