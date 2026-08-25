@@ -33,7 +33,7 @@ describe('TicketDetailView', () => {
     mock.onGet(`/api/tickets/${id}/agent-tasks/latest`).reply(204)
     const router = await routerFor(id)
     const wrapper = mount(TicketDetailView, { global: { plugins: [router], stubs: {
-      ConsoleLayout: { template: '<main><slot /></main>' }, AgentTimeline: true, RouterLink: true,
+      ConsoleLayout: { template: '<main><slot /></main>' }, AgentTimeline: true, TicketConversation: true, RouterLink: true,
     } } })
     await flushPromises()
 
@@ -59,7 +59,7 @@ describe('TicketDetailView', () => {
     })
     const router = await routerFor(id)
     const wrapper = mount(TicketDetailView, { global: { plugins: [router], stubs: {
-      ConsoleLayout: { template: '<main><slot /></main>' }, AgentTimeline: true, RouterLink: true,
+      ConsoleLayout: { template: '<main><slot /></main>' }, AgentTimeline: true, TicketConversation: true, RouterLink: true,
     } } })
     await flushPromises()
 

@@ -36,6 +36,8 @@
 
 工单、Agent 任务、节点步骤、模型调用、工具调用、审批记录和 SSE 事件都会持久化到 MySQL。即使用户离开工单页面、浏览器断线或后端进程短暂重启，页面也可以重新加载历史事件，后台则可以根据安全检查点恢复未完成任务。
 
+诊断结束后，值班人员还可以在工单详情内持续追问。平台会把 user/assistant 消息按租户和工单持久化，并在对话变长后自动把较早的完整问答轮次压缩为摘要，同时保留最近消息原文。追问只负责解释诊断、证据、风险和下一步，不会把一句聊天文本直接当成真实变更授权；任何写操作仍必须进入原有工具策略和审批链路。
+
 ### 整体运行架构
 
 | 层次 | 主要组件 | 负责内容 |
@@ -43,6 +45,7 @@
 | 交互层 | Vue 3、Pinia、Vue Router | 工单创建、执行时间线、审批、知识库、评测和系统状态页面 |
 | 接入层 | Nginx、Spring Security、JWT | 统一入口、反向代理、身份认证、角色校验和租户上下文 |
 | 业务控制层 | Ticket、Agent、Approval、Evaluation | 工单状态机、Agent 生命周期、人工审批、恢复与评测 |
+| 会话协作层 | TicketConversation、Message、Summary | 工单内持续追问、消息持久化、上下文窗口和自动摘要 |
 | Agent 编排层 | Alibaba Graph、七个 Agent Node | 将一次复杂诊断拆成固定、可观察、可恢复的执行节点 |
 | 模型层 | Spring AI、Qwen、DeepSeek | 结构化分类、工具规划和根因推理，不直接执行系统操作 |
 | 知识层 | 文档切分、Embedding、PostgreSQL/pgvector | RAG 语义检索、租户过滤、相似度过滤和引用追踪 |
@@ -167,6 +170,7 @@ docker compose --env-file .env up -d --build
 AI_DASHSCOPE_API_KEY=你的百炼Key
 DEEPSEEK_API_KEY=你的DeepSeekKey
 AGENT_MODEL_PROVIDER=QWEN
+AGENT_CONVERSATION_MODEL_PROVIDER=QWEN
 KNOWLEDGE_EMBEDDING_PROVIDER=QWEN
 KNOWLEDGE_MIN_SCORE=0.25
 ```
@@ -180,7 +184,7 @@ powershell -ExecutionPolicy Bypass -File scripts/seed-knowledge.ps1
 
 也可以登录 `acme / admin`，进入“知识库”后点击“初始化内置知识”。页面和脚本都会调用同一个租户级幂等接口，重复执行不会创建重复文档。平台会发布五份有官方来源的运维手册，覆盖 Redis 超时、HikariCP 连接池耗尽、Spring Boot API 5xx、Kafka 消费积压和 Kubernetes 磁盘压力。不要在同一批已入库文档上切换 embedding 提供方；切换后应重新入库，避免混用不同向量空间。
 
-登录后可创建三类工单：已接入的真实服务、自定义知识诊断、内置故障沙箱。Agent 会输出诊断摘要、根因、处置步骤、验证标准、回滚方案和证据；高风险动作进入人工审批，批准后才会调用变更端点并再次检查健康状态。离开详情页不会丢失执行上下文，重新进入工单会自动恢复最近一次任务。
+登录后可创建三类工单：已接入的真实服务、自定义知识诊断、内置故障沙箱。Agent 会输出诊断摘要、根因、处置步骤、验证标准、回滚方案和证据；高风险动作进入人工审批，批准后才会调用变更端点并再次检查健康状态。工单详情下方可以围绕根因、证据、风险和后续操作持续追问。离开详情页不会丢失任务或聊天上下文，重新进入工单会恢复最近任务和持久化消息。
 
 ## 接入真实业务系统
 
@@ -214,6 +218,7 @@ Smoke 会真实入库一份文档、执行 pgvector 检索并检查跨租户引�
 - 任意故障工单、真实 HTTP 业务服务接入、五种确定性演练场景
 - 四个只读诊断工具、两个审批型写工具，以及真实/沙箱数据源路由
 - 七节点 Agent Graph、面向处置结果的结构化输出、RAG 引用和预算控制
+- 工单内持续追问、MySQL 持久化 Chat Memory、长上下文自动摘要和最近消息滑动窗口
 - 单次消费审批、审批后健康复查、幂等恢复、取消、超时和 `MANUAL_REQUIRED` 安全终态
 - 可重放 SSE 时间线，浏览器按最后持久化序号断线续传
 - 30 条评测基线，MOCK 与 LIVE 复用生产节点但与工单和审批队列隔离
@@ -221,7 +226,7 @@ Smoke 会真实入库一份文档、执行 pgvector 检索并检查跨租户引�
 
 ## 模型配置
 
-无模型 Key 时平台仍可启动、使用本地词法向量验证知识库、运行 MOCK 评测与控制面演示；真实 Agent 诊断会明确失败，而不会伪造模型结果。配置 `AI_DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY` 后启用对应对话模型，使用 `AGENT_MODEL_PROVIDER=QWEN|DEEPSEEK` 选择默认供应商。
+无模型 Key 时平台仍可启动、使用本地词法向量验证知识库、运行 MOCK 评测与控制面演示；真实 Agent 诊断和工单追问会明确失败，而不会伪造模型结果。配置 `AI_DASHSCOPE_API_KEY` 或 `DEEPSEEK_API_KEY` 后启用对应对话模型，使用 `AGENT_MODEL_PROVIDER=QWEN|DEEPSEEK` 选择默认诊断供应商；`AGENT_CONVERSATION_MODEL_PROVIDER` 可以为持续追问单独选择供应商，默认跟随诊断模型。
 
 本地向量器只用于离线演示和可重复验收，不冒充生产语义模型。需要 Qwen embedding 时，同时配置：
 
@@ -244,7 +249,7 @@ docker compose --env-file .env.example build
 pwsh -File scripts/smoke.ps1
 ```
 
-权威验收基线为 99 个后端单元测试、58 个 Testcontainers 集成测试和 13 个前端测试。Smoke 真实检查健康、登录、知识入库与 pgvector 检索、跨租户隔离、工单、Agent 状态边界与 30 条 MOCK 评测，并输出持久化 `evaluationRun`。
+权威验收基线为 99 个后端单元测试、63 个 Testcontainers 集成测试和 15 个前端测试。Smoke 真实检查健康、登录、知识入库与 pgvector 检索、跨租户隔离、工单、Agent 状态边界与 30 条 MOCK 评测，并输出持久化 `evaluationRun`。
 
 ## 文档
 

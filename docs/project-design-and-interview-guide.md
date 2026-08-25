@@ -27,7 +27,7 @@ Ops Agent Platform 是一个以运维工单为入口的 Java 智能运维平台�
 
 ### 1.3 它不是什么
 
-- 不是通用聊天机器人：输入核心是工单，不是无限开放的聊天消息。
+- 不是脱离业务的通用聊天机器人：支持工单内持续追问，但会话始终绑定具体工单和租户。
 - 不是让模型直接登录服务器：模型没有 Shell、任意 SQL、任意文件系统权限。
 - 不是纯 Prompt Demo：任务、步骤、模型调用、工具调用、审批和事件都真实持久化。
 - 不是全自动生产运维平台：只有已接入、已建模、已授权的动作才能真实执行。
@@ -42,6 +42,7 @@ Ops Agent Platform 是一个以运维工单为入口的 Java 智能运维平台�
 | 首页总览 | 查看工单、审批、场景和评测概况 | 聚合各业务 API，前端展示最近工单与能力状态 | 让运维人员先看到待处理事项，而不是技术组件 |
 | 工单管理 | 创建、分页筛选、查看、取消工单 | Ticket 聚合、MyBatis Plus 仓储、显式状态机 | 工单是业务主线，Agent 不能脱离工单任意运行 |
 | Agent 诊断 | 启动、停止、查看执行时间线和最终结论 | 异步执行器、任务租约、七节点 Graph、持久化事件 | 长任务不阻塞 HTTP，请求过程可审计、可恢复 |
+| 工单持续追问 | 围绕根因、证据、风险和下一步进行多轮交流 | 工单级 Conversation、消息持久化、最近窗口、自动摘要、数据库租约 | 既保留聊天体验，又不让上下文无限增长或把聊天当授权 |
 | RAG 知识库 | 初始化内置知识、新增文档、发布版本、语义检索 | 文档分块、Embedding、MySQL 版本元数据、pgvector 检索 | 企业知识可更新、可追溯，避免把整篇文档直接塞入 Prompt |
 | 受控工具 | 自动读取健康、指标、日志和依赖 | Java 工具白名单、参数归一化、超时与结果上限 | 模型只能提出调用意图，不能自行获得执行能力 |
 | 人工审批 | 查看、批准或拒绝高风险动作 | 独立审批状态机、有效期、原子状态更新、一次性执行 | 将模型建议、人类授权和程序执行分离 |
@@ -102,6 +103,7 @@ Nginx 是唯一对宿主机暴露的入口，反向代理 REST、Actuator 和 SS
 | `identity` | 登录、JWT、用户凭证、TenantContext | `AuthController`、`JwtAuthenticationFilter` |
 | `ticket` | 工单聚合、分页查询、状态迁移 | `TicketController`、`TicketService` |
 | `agent` | 任务、Graph、预算、事件、恢复 | `AgentTaskController`、`OpsAgentWorkflow` |
+| `conversation` | 工单会话、消息、摘要、并发租约 | `TicketConversationController`、`TicketConversationService` |
 | `knowledge` | 文档版本、切分、Embedding、检索 | `DocumentIngestionService`、`PgVectorKnowledgeRetriever` |
 | `tool` | 工具目录、风险策略、执行上限 | `ToolPolicyService`、`OpsToolFacade` |
 | `simulator` | 沙箱数据与真实服务路由 | `FixtureOpsDataProvider`、`RoutingOpsDataProvider` |
@@ -119,6 +121,8 @@ Nginx 是唯一对宿主机暴露的入口，反向代理 REST、Actuator 和 SS
 
 - `Ticket`：故障事件的业务主记录，保存标题、描述、服务、严重程度、场景和状态。
 - `AgentTask`：一次 Agent 执行，保存预算、使用量、Worker 租约、取消请求和终态。
+- `TicketConversation`：一张工单的持续会话，保存摘要边界和生成租约。
+- `ConversationMessage`：不可变的 user/assistant 消息，保存状态、模型、Token 和延迟。
 - `AgentStep`：Graph 中一个节点的一次执行记录，保存输入快照、输出 checkpoint、耗时和错误摘要。
 - `KnowledgeDocument` / Version：知识文档身份与不可变版本。
 - `KnowledgeChunk`：可检索的最小知识片段，包含向量、版本和引用坐标。
@@ -128,7 +132,7 @@ Nginx 是唯一对宿主机暴露的入口，反向代理 REST、Actuator 和 SS
 
 ### 5.2 MySQL 中保存什么
 
-MySQL 通过 10 组 Flyway 迁移创建以下核心表：
+MySQL 通过 11 组 Flyway 迁移创建以下核心表：
 
 | 表 | 作用 |
 |---|---|
@@ -144,6 +148,7 @@ MySQL 通过 10 组 Flyway 迁移创建以下核心表：
 | `security_audit_log` | 认证、授权、工具策略和恢复安全事件 |
 | `evaluation_run`、`evaluation_case_result` | 评测配置、指标和逐用例证据 |
 | `managed_service` | 真实业务系统接入配置 |
+| `ticket_conversation`、`ticket_conversation_message` | 工单会话、上下文摘要、消息、模型与 Token 元数据 |
 
 ### 5.3 pgvector 中保存什么
 
@@ -574,8 +579,8 @@ Actuator 暴露 health、info 和 Prometheus；health 可匿名用于容器探�
 ### 15.2 当前验收基线
 
 - 99 个后端单元测试。
-- 58 个 Testcontainers 集成测试。
-- 13 个前端测试。
+- 63 个 Testcontainers 集成测试。
+- 15 个前端测试。
 - Vue TypeScript 检查与 Vite 生产构建。
 - Docker Compose 配置、镜像构建和真实 Smoke。
 - Smoke 覆盖登录、权限、知识入库、pgvector 检索、跨租户隔离、工单、Agent 边界与 30 条 MOCK 评测。
@@ -631,72 +636,52 @@ Prompt 是软约束，可能被误解或注入；Java allowlist、角色、租�
 
 ### 17.1 结论
 
-**当前版本不支持用户可见的持续多轮对话。**
+**当前版本已经支持工单内持续追问、消息持久化和长上下文自动摘要。**
 
-当前系统支持的是“一张工单对应一次或多次独立 Agent 任务，每次任务内部有多节点上下文”。它具备持久化工作流状态、SSE 事件、任务恢复和历史结果，但没有以下聊天能力：
+每张工单在每个租户内最多对应一个 `TicketConversation`。用户在工单详情发送追问后，平台持久化 USER 消息，再加载工单事实、最新 AgentTask 诊断结果、历史摘要和最近消息，调用 Qwen 或 DeepSeek 生成回答，并持久化 ASSISTANT 消息。刷新页面或重启服务后，历史消息仍可恢复。
 
-- 没有 `conversation` / `message` 数据表。
-- 没有发送追问消息的 API。
-- 没有 `conversationId` 或会话生命周期。
-- 没有把历史 user/assistant message 重新组装进上下文窗口。
-- 没有对长会话做摘要、滑动窗口或 Token 淘汰。
-- 没有跨任务的用户偏好或长期记忆。
+它不是跨所有工单的开放聊天，也没有个人偏好型长期记忆。会话的业务边界始终是 `tenant + ticket`，聊天内容不能直接授权真实变更。
 
 ### 17.2 为什么多节点状态不等于多轮对话
 
 `OpsAgentState` 会在 `triage → retrieve → plan → diagnose → decision` 之间传递数据，这是一种 Workflow State。它的参与者主要是程序节点，不是用户和 Assistant 轮流发消息。
 
-多轮对话要求用户在第一次回答后继续追问、补充证据或修正目标，并让模型理解历史语义。当前前端只有“启动任务、查看事件、审批、取消”，没有“继续提问”。
+多轮对话是用户与 Assistant 的交替消息，保存在 `ticket_conversation_message`。这两类状态会共同参与回答，但生命周期和用途不同：工作流状态用于执行一次诊断，会话状态用于解释、补充和连续交流。
 
-### 17.3 为什么当前项目优先做工单工作流
+### 17.3 一次持续追问如何运行
 
-对于运维处置，结构化工单比开放聊天更容易审计和授权。每次执行都有确定输入、预算和终态；高风险动作可以绑定到具体任务、工具和参数。若一开始就做无限对话，必须同时解决历史污染、上下文膨胀、指令优先级、会话并发和“聊天中一句话是否代表授权”等问题。
+1. 服务端通过 `TicketService.get` 校验工单属于当前租户。
+2. 使用 `(tenant_id, ticket_id)` 唯一约束获取或创建会话。
+3. 申请数据库生成租约；同一工单已有回复正在生成时返回 409，避免两轮消息乱序。
+4. 对用户输入做长度限制和敏感信息脱敏，然后持久化 USER 消息。
+5. 超过摘要阈值时压缩较老的完整问答轮次，最近消息仍保留原文。
+6. 组装工单、最新诊断、旧摘要和最近消息，并把业务内容标记为不可信上下文。
+7. 调用统一 `ModelGateway`，持久化回答、供应商、模型名、Token 和延迟。
+8. 模型失败时仍保存用户问题与 FAILED assistant 记录，页面可明确显示失败并继续重试。
+9. 最后释放生成租约；服务异常遗留的租约会在配置的有效期后自动失效。
 
-### 17.4 如何扩展为可持续对话 Agent
+### 17.4 上下文摘要为什么这样设计
 
-推荐新增以下模型：
-
-```text
-ConversationSession
-  id, tenantId, ticketId, createdBy, status,
-  summary, lastMessageSequence, createdAt, updatedAt
-
-ConversationMessage
-  id, sessionId, tenantId, sequence, role,
-  content, tokenCount, model, citations, createdAt
-
-ConversationTurn
-  id, sessionId, userMessageId, assistantMessageId,
-  agentTaskId, status, idempotencyKey
-```
-
-建议 API：
+默认有超过 12 条尚未摘要的成功消息时触发压缩，至少保留最近 6 条原文。摘要切分优先落在完整 assistant 回答之后，避免把一个用户问题和对应回答拆开。摘要必须保留用户目标、已确认事实、关键指标、根因、动作状态、风险与待解决问题。
 
 ```text
-POST /api/tickets/{ticketId}/conversations
-GET  /api/conversations/{conversationId}
-GET  /api/conversations/{conversationId}/messages?after=...
-POST /api/conversations/{conversationId}/messages
-GET  /api/conversations/{conversationId}/events?after=...
+系统安全规则
+  + 当前工单事实
+  + 最新 AgentTask 诊断结果
+  + 已压缩历史摘要
+  + 最近 N 条 user/assistant 原文
+  → 本轮模型回答
 ```
 
-一次追问的推荐流程：
-
-1. 校验会话、工单和当前用户属于同一租户。
-2. 使用幂等键写入用户消息。
-3. 加载系统指令、会话摘要、最近 N 条消息和工单事实。
-4. 对历史消息做 Token 预算计算。
-5. 需要新证据时启动新的只读诊断任务，而不是沿用过期观察。
-6. 输出回答并保存 assistant message、引用和所用模型。
-7. 长会话超过阈值时生成结构化摘要，但保留原始消息供审计。
+原始消息不会因摘要而删除，所以审计证据仍在。若摘要模型临时失败，本轮回答会退化为有限的最近消息窗口，最多向模型提供 24 条消息，避免 Prompt 无界增长。
 
 ### 17.5 对话模式下仍要保留的安全边界
 
 - 聊天消息不能直接代表审批。
 - “帮我重启”只能生成待确认动作，仍要进入现有审批聚合。
 - 历史消息和会话摘要都属于不可信上下文。
-- 新一轮执行前应重新检查实时健康，不能复用数小时前的工具观察。
-- 一个会话同一时刻只允许一个生成中的 Turn，或使用 sequence 做乐观并发控制。
+- 当前追问默认只解释已有工单和诊断信息，不会自动重新调用实时工具；需要新证据时应显式重新运行诊断或扩展“只读刷新”能力。
+- 一个会话同一时刻只允许一个生成中的 Turn，当前使用带过期时间的数据库租约控制。
 - 会话记忆按 tenant 和 ticket 隔离，不能做无边界的全局用户记忆。
 
 ### 17.6 短期记忆、长期记忆和工作流状态的区别
@@ -704,8 +689,8 @@ GET  /api/conversations/{conversationId}/events?after=...
 | 类型 | 保存内容 | 生命周期 | 本项目现状 |
 |---|---|---|---|
 | 工作流状态 | 分类、证据、工具结果、根因 | 单次 AgentTask | 已实现 |
-| 短期对话记忆 | 最近多轮 user/assistant 消息 | 单个会话 | 未实现 |
-| 会话摘要 | 被压缩的历史目标和结论 | 长会话 | 未实现 |
+| 短期对话记忆 | 最近多轮 user/assistant 消息 | 单个工单会话 | 已实现 |
+| 会话摘要 | 被压缩的历史目标和结论 | 长会话 | 已实现 |
 | 长期业务记忆 | Runbook、历史事故、组织知识 | 跨会话 | 知识库已实现一部分 |
 | 用户偏好记忆 | 个人习惯、偏好和上下文 | 跨会话/用户 | 未实现 |
 
@@ -745,11 +730,11 @@ GET  /api/conversations/{conversationId}/events?after=...
 
 ### 18.8 Agent 支持持续对话吗
 
-> 当前不支持用户多轮对话。它支持的是单任务内部的多节点状态和持久化恢复，这不等于 Chat Memory。项目没有 conversation/message 表和追问接口。我优先实现工单闭环，因为运维授权要绑定确定任务。如果扩展，会新增会话和消息模型、上下文窗口、摘要与 Token 管理，但执行动作仍走独立审批，不能把聊天文本当授权。
+> 支持工单范围内的持续对话。每张工单有一个租户隔离的 Conversation，user/assistant 消息持久化到 MySQL。每轮回答加载工单、最新诊断、历史摘要和最近消息；未摘要消息超过 12 条时压缩旧的完整问答轮次并保留最近 6 条原文，另外有 24 条模型上下文硬上限。同一工单通过数据库租约串行生成，防止并发消息乱序。它不是全局聊天，聊天中的“重启服务”也不等于审批，写操作仍必须走独立审批链路。
 
 ### 18.9 你的 Agent 有 Memory 吗
 
-> 有工作流记忆和知识记忆，但没有聊天记忆。`OpsAgentState` 和 checkpoint 是单任务工作流记忆；pgvector 中的 runbook 是跨任务业务知识。用户多轮消息、会话摘要和个人长期偏好目前没有实现。面试时我会明确区分这三类 memory，避免把数据库持久化都称为 Chat Memory。
+> 有三类 Memory。第一，`OpsAgentState` 和 checkpoint 是单任务工作流记忆；第二，`ticket_conversation_message`、最近消息窗口和自动摘要是工单级聊天记忆；第三，pgvector 中的 runbook 是跨任务业务知识。当前没有跨工单的个人偏好记忆。我会明确区分生命周期和信任边界，避免把所有数据库持久化都笼统称为 Memory。
 
 ### 18.10 页面上的流式输出是什么
 
@@ -873,7 +858,7 @@ GET  /api/conversations/{conversationId}/events?after=...
 >
 > 安全上模型不能直接执行工具。Java ToolPolicyService 管理 allowlist、风险、超时和结果上限。重启和改配置必须生成一次性审批，批准后用幂等键执行，再做健康复查。任务使用数据库状态机和 Worker lease，节点 checkpoint 可在崩溃后恢复，写操作结果不明确时转人工。
 >
-> 工程上还有多租户 JWT、Flyway、Testcontainers、SSE 事件重放、Micrometer 和 30 条 MOCK/LIVE 评测。当前定位是工作流 Agent，不支持持续聊天；后续可以在不改变审批边界的前提下增加 conversation/message 和短期记忆。
+> 工程上还有多租户 JWT、Flyway、Testcontainers、SSE 事件重放、Micrometer 和 30 条 MOCK/LIVE 评测。工单详情支持持久化多轮追问，并通过旧消息摘要、最近窗口和数据库生成租约控制长上下文与并发；聊天只负责解释协作，真实写操作仍必须走原有审批边界。
 
 ## 20. 推荐源码阅读顺序
 
@@ -942,6 +927,8 @@ GET  /api/conversations/{conversationId}/events?after=...
 | `POST /api/tickets` | 创建工单 | 已认证 |
 | `GET /api/tickets` | 按状态分页查询 | 已认证，支持 `status/page/size` |
 | `GET /api/tickets/{id}` | 工单详情 | 已认证、租户过滤 |
+| `GET /api/tickets/{id}/conversation` | 加载工单持久化会话 | 无会话返回 204，租户过滤 |
+| `POST /api/tickets/{id}/conversation/messages` | 发送持续追问 | 同工单串行生成；繁忙返回 409，模型失败返回 503 |
 | `POST /api/tickets/{id}/cancel` | 取消非终态工单 | 已认证、状态机校验 |
 | `POST /api/tickets/{ticketId}/agent-tasks` | 启动 Agent | 返回 202，拒绝重复活跃任务 |
 | `GET /api/agent-tasks/{taskId}` | 查询任务状态 | 已认证、租户过滤 |
@@ -986,6 +973,10 @@ GET  /api/conversations/{conversationId}/events?after=...
 | `DEEPSEEK_API_KEY` | 空 | DeepSeek 对话模型 Key |
 | `DEEPSEEK_MODEL` | `deepseek-chat` | DeepSeek 模型 |
 | `AGENT_MODEL_PROVIDER` | `QWEN` | 默认 Agent 对话供应商 |
+| `AGENT_CONVERSATION_MODEL_PROVIDER` | 跟随 `AGENT_MODEL_PROVIDER` | 工单追问与摘要模型供应商 |
+| `AGENT_CONVERSATION_SUMMARY_THRESHOLD` | `12` | 未摘要消息超过该数量后压缩旧轮次 |
+| `AGENT_CONVERSATION_RECENT_WINDOW` | `6` | 摘要后至少保留的最近原文消息数 |
+| `AGENT_CONVERSATION_PROCESSING_LEASE` | `PT3M` | 同工单单轮生成的数据库租约 |
 | `KNOWLEDGE_EMBEDDING_PROVIDER` | `LOCAL` | `LOCAL` 或 `QWEN` |
 | `KNOWLEDGE_MIN_SCORE` | `0.25` | pgvector 最低相似度 |
 | `AGENT_WORKER_ID` | `local-agent-worker` | Worker 租约身份 |
@@ -1013,7 +1004,8 @@ GET  /api/conversations/{conversationId}/events?after=...
 9. 打开业务系统接入，解释真实服务 HTTP 契约和 Token 环境变量。
 10. 打开评测中心，先运行 MOCK，再说明 LIVE 的费用和波动。
 11. 打开平台状态，强调这里是平台自身，不是用户业务系统健康。
-12. 最后主动说明当前不支持持续对话、没有 MCP，以及对应扩展设计。
+12. 在工单内连续追问根因和风险，刷新页面展示消息持久化；再说明长会话摘要与并发租约。
+13. 最后主动说明当前没有 MCP，以及对应扩展设计。
 
 这套顺序先展示业务价值，再讲 AI 技术，最后讲工程可靠性和边界，通常比从依赖列表开始介绍更容易让面试官理解。
 
@@ -1031,4 +1023,4 @@ GET  /api/conversations/{conversationId}/events?after=...
 - 用幂等、验证、租约和 checkpoint 保证可靠性。
 - 用事件、审计、指标和评测证明系统实际做了什么。
 
-当前它是一个完整的运维 Workflow Agent，而不是持续对话 Agent。这个边界并不削弱项目价值，反而体现了业务建模：聊天能力可以扩展，但真实操作必须始终处于可授权、可审计、可恢复的控制面之内。
+当前它是一个带工单级持续会话的运维 Workflow Agent：七节点 Graph 负责诊断与受控处置，Conversation 负责解释和追问。两条路径共享工单事实和模型能力，但真实操作始终处于可授权、可审计、可恢复的控制面之内。

@@ -6,6 +6,7 @@ import { routeParameter, type EntityId } from '../api/types'
 import AgentTimeline from '../components/AgentTimeline.vue'
 import ConsoleLayout from '../components/ConsoleLayout.vue'
 import ModalDialog from '../components/ModalDialog.vue'
+import TicketConversation from '../components/TicketConversation.vue'
 import { displayLabel, formatDate, scenarioLabel } from '../utils/labels'
 
 const route = useRoute(); const router = useRouter(); const ticketId = routeParameter(route.params.id)
@@ -66,5 +67,6 @@ onMounted(async () => { try { await refresh() } catch { error.value = '工单不
   </section>
   <section v-else-if="result" class="agent-empty surface-panel"><div class="agent-symbol">!</div><div><h3>Agent 诊断未完成</h3><p>{{ result.errorSummary || '任务未形成可靠诊断结论，请查看上方执行时间线后重试或转人工处理。' }}</p></div></section>
   <section v-else-if="!taskId" class="agent-empty surface-panel"><div class="agent-symbol">AI</div><div><h3>尚未启动 Agent 诊断</h3><p>启动后，平台将检索知识、调用只读诊断工具，并在高风险恢复操作前等待人工审批。</p></div></section>
+  <TicketConversation v-if="ticket" :ticket-id="ticketId" />
   <ModalDialog v-if="confirmAction" :title="confirmAction === 'ticket' ? '确认取消工单？' : '确认停止 Agent？'" eyebrow="操作确认" @close="confirmAction = null"><p class="confirm-copy">{{ confirmAction === 'ticket' ? '工单取消后不能再次启动 Agent，请确认该事件无需继续处置。' : '系统会请求中止当前执行，已经产生的事件仍会保留用于审计。' }}</p><div class="modal-actions"><button class="text-button" @click="confirmAction = null">返回</button><button class="danger-button" :disabled="busy" @click="confirm">确认操作</button></div></ModalDialog>
 </ConsoleLayout></template>

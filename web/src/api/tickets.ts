@@ -95,6 +95,32 @@ export interface AgentTaskResult {
   errorSummary: string | null
 }
 
+export type ConversationRole = 'USER' | 'ASSISTANT'
+export type ConversationMessageStatus = 'SENT' | 'FAILED'
+
+export interface ConversationMessage {
+  id: EntityId
+  role: ConversationRole
+  status: ConversationMessageStatus
+  content: string
+  provider: string | null
+  modelName: string | null
+  inputTokens: number
+  outputTokens: number
+  latencyMs: number
+  createdAt: string
+}
+
+export interface TicketConversation {
+  id: EntityId
+  ticketId: EntityId
+  summary: string | null
+  summarizedThroughMessageId: EntityId | null
+  createdAt: string
+  updatedAt: string
+  messages: ConversationMessage[]
+}
+
 export async function listTickets(params: {
   status?: TicketStatus
   page?: number
@@ -134,6 +160,25 @@ export async function getAgentTaskResult(taskId: EntityId): Promise<AgentTaskRes
 
 export async function cancelAgentTask(taskId: EntityId): Promise<AgentTask> {
   return (await api.post<AgentTask>(`/api/agent-tasks/${taskId}/cancel`)).data
+}
+
+export async function getTicketConversation(
+  ticketId: EntityId,
+): Promise<TicketConversation | null> {
+  const response = await api.get<TicketConversation>(
+    `/api/tickets/${ticketId}/conversation`,
+  )
+  return response.status === 204 ? null : response.data
+}
+
+export async function sendTicketConversationMessage(
+  ticketId: EntityId,
+  content: string,
+): Promise<TicketConversation> {
+  return (await api.post<TicketConversation>(
+    `/api/tickets/${ticketId}/conversation/messages`,
+    { content },
+  )).data
 }
 
 export async function streamAgentEvents(

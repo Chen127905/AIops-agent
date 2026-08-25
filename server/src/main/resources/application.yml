@@ -54,6 +54,11 @@ app:
       enabled: "${AGENT_RECOVERY_ENABLED:true}"
       interval: "${AGENT_RECOVERY_INTERVAL:PT30S}"
       initial-delay: "${AGENT_RECOVERY_INITIAL_DELAY:PT1M}"
+    conversation:
+      provider: "${AGENT_CONVERSATION_MODEL_PROVIDER:${AGENT_MODEL_PROVIDER:QWEN}}"
+      summary-threshold: "${AGENT_CONVERSATION_SUMMARY_THRESHOLD:12}"
+      recent-message-window: "${AGENT_CONVERSATION_RECENT_WINDOW:6}"
+      processing-lease: "${AGENT_CONVERSATION_PROCESSING_LEASE:PT3M}"
   knowledge:
     retrieval:
       min-score: "${KNOWLEDGE_MIN_SCORE:0.25}"
